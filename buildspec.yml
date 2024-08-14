@@ -1,0 +1,13 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      docker: 20
+  build:
+    commands:
+      - docker build -t ecw-server .
+  post_build:
+    commands:
+      - docker tag ecw-server:latest quyld17/ecw-server:latest
+      - docker push quyld17/ecw-server:latest
