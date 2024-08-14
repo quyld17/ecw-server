@@ -4,10 +4,24 @@ phases:
   install:
     runtime-versions:
       docker: 19
+  pre_build:
+    commands:
+      - echo Logging in to Docker Hub...
+      - |
+        # Retrieve Docker credentials from Secrets Manager
+        SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id docker-user --query SecretString --output text)
+        DOCKER_USERNAME=$(echo $SECRET_JSON | jq -r '.username')
+        DOCKER_PASSWORD=$(echo $SECRET_JSON | jq -r '.password')
+
+        # Log in to Docker Hub
+        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
   build:
     commands:
-      - docker build -t ecw-server .
+      - echo Building Docker images...
+      - docker build -t quyld17/ecw-server:latest .
+
   post_build:
     commands:
-      - docker tag ecw-server:latest quyld17/ecw-server:latest
+      - echo Pushing Docker images to Docker Hub...
       - docker push quyld17/ecw-server:latest
