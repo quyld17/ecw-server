@@ -4,6 +4,8 @@ phases:
   install:
     commands:
       - echo Installing dependencies...
+      - sudo apt-get update
+      - sudo apt-get install -y jq
 
   pre_build:
     commands:
