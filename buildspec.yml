@@ -17,6 +17,16 @@ phases:
         # Log in to Docker Hub
         echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 
+      - echo Retrieving credentials from Secrets Manager
+      - |
+        SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id ecw/server/env --query SecretString --output text)
+        export DB_USER=$(echo $SECRET_JSON | jq -r '.DB_USER')
+        export DB_PASSWORD=$(echo $SECRET_JSON | jq -r '.DB_PASSWORD')
+        export DB_HOST=$(echo $SECRET_JSON | jq -r '.DB_HOST')
+        export DB_PORT=$(echo $SECRET_JSON | jq -r '.DB_PORT')
+        export DB_NAME=$(echo $SECRET_JSON | jq -r '.DB_NAME')
+        export JWT_SECRET_KEY=$(echo $SECRET_JSON | jq -r '.JWT_SECRET_KEY')
+
   build:
     commands:
       - echo Building Docker images...
