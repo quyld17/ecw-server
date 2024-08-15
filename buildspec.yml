@@ -22,17 +22,17 @@ phases:
       - echo Retrieving credentials from Secrets Manager
       - |
         SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id ecw/server/env --query SecretString --output text)
-        export DB_USER=$(echo $SECRET_JSON | jq -r '.DB_USER')
-        export DB_PASSWORD=$(echo $SECRET_JSON | jq -r '.DB_PASSWORD')
-        export DB_HOST=$(echo $SECRET_JSON | jq -r '.DB_HOST')
-        export DB_PORT=$(echo $SECRET_JSON | jq -r '.DB_PORT')
-        export DB_NAME=$(echo $SECRET_JSON | jq -r '.DB_NAME')
-        export JWT_SECRET_KEY=$(echo $SECRET_JSON | jq -r '.JWT_SECRET_KEY')
+        echo "DB_USER=$(echo $SECRET_JSON | jq -r '.DB_USER')" >> .env
+        echo "DB_PASSWORD=$(echo $SECRET_JSON | jq -r '.DB_PASSWORD')" >> .env
+        echo "DB_HOST=$(echo $SECRET_JSON | jq -r '.DB_HOST')" >> .env
+        echo "DB_PORT=$(echo $SECRET_JSON | jq -r '.DB_PORT')" >> .env
+        echo "DB_NAME=$(echo $SECRET_JSON | jq -r '.DB_NAME')" >> .env
+        echo "JWT_SECRET_KEY=$(echo $SECRET_JSON | jq -r '.JWT_SECRET_KEY')" >> .env
 
   build:
     commands:
       - echo Building Docker image...
-      - docker build --build-arg DB_USER=$DB_USER --build-arg DB_PASSWORD=$DB_PASSWORD --build-arg DB_HOST=$DB_HOST --build-arg DB_PORT=$DB_PORT --build-arg DB_NAME=$DB_NAME --build-arg JWT_SECRET_KEY=$JWT_SECRET_KEY -t quyld17/ecw-server:latest .
+      - docker build -t quyld17/ecw-server:latest .
 
   post_build:
     commands:
