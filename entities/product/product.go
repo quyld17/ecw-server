@@ -23,21 +23,19 @@ type ProductImage struct {
 	IsThumbnail int    `json:"is_thumbnail"`
 }
 
-func GetByPage(c echo.Context, db *sql.DB, offset, limit int) ([]Product, int, error) {
+func GetByPage(c echo.Context, db *sql.DB, limit, offset int) ([]Product, int, error) {
 	rows, err := db.Query(`
         SELECT 
-            products.product_id, 
-            products.product_name, 
-            products.price, 
-            products.category_id, 
-            product_images.image_url 
-        FROM 
-            products, 
-            product_images
-        WHERE 
-            product_images.is_thumbnail = 1 AND 
-            products.product_id = product_images.product_id
-        LIMIT ? 
+			products.product_id, 
+			products.category_id, 
+			products.product_name, 
+			products.price,
+			products.in_stock_quantity,
+			product_images.image_url 
+		FROM products
+		JOIN product_images ON products.product_id = product_images.product_id
+		WHERE product_images.is_thumbnail = 1
+		LIMIT ? 
 		OFFSET ?;
 		`, limit, offset)
 	if err != nil {
@@ -57,7 +55,7 @@ func GetByPage(c echo.Context, db *sql.DB, offset, limit int) ([]Product, int, e
 	productDetails := []Product{}
 	for rows.Next() {
 		var product Product
-		err := rows.Scan(&product.ProductID, &product.ProductName, &product.Price, &product.CategoryID, &product.ImageURL)
+		err := rows.Scan(&product.ProductID, &product.CategoryID, &product.ProductName, &product.Price, &product.InStockQuantity, &product.ImageURL)
 		if err != nil {
 			return nil, 0, err
 		}

@@ -11,13 +11,13 @@ import (
 )
 
 func GetProductsByPage(c echo.Context, db *sql.DB) error {
-	itemsPerPage := 5
+	itemsPerPage := 10
 	offset, err := middlewares.Pagination(c, itemsPerPage)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
-	products, numOfProds, err := products.GetByPage(c, db, offset, itemsPerPage)
+	products, numOfProds, err := products.GetByPage(c, db, itemsPerPage, offset)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Unable to retrieve products at the moment. Please try again")
 	}
