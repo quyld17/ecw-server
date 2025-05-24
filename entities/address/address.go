@@ -8,17 +8,25 @@ import (
 )
 
 type Address struct {
-	AddressID   int    `json:"address_id"`
-	City        string `json:"city"`
-	District    string `json:"district"`
-	Ward        string `json:"ward"`
-	Street      string `json:"street"`
-	HouseNumber string `json:"house_number"`
-	IsDefault   int    `json:"is_default"`
+	AddressID int    `json: "address_id"`
+	Name      string `json: "name"`
+	Address   string `json: "address"`
+	IsDefault int    `json: "is_default"`
 }
 
-func Add(userID int, city, district, ward, street, houseNumber string, c echo.Context, db *sql.DB) error {
-	// Check if user has any addresses
+func Add(userID int, name, address string, c echo.Context, db *sql.DB) error {
+	row := db.QueryRow(`
+		SELECT address_id 
+		FROM addresses 
+		WHERE 	user_id = ? AND 
+				name = ? 
+		LIMIT 1
+		`, userID, name)
+	var existingID int
+	if err := row.Scan(&existingID); err == nil {
+		return fmt.Errorf("Address with this name already exists!")
+	}
+
 	rows, err := db.Query(`
 		SELECT address_id 
 		FROM addresses 
@@ -31,20 +39,16 @@ func Add(userID int, city, district, ward, street, houseNumber string, c echo.Co
 
 	isDefault := 0
 	if !rows.Next() {
-		// No existing addresses found, set this as default
 		isDefault = 1
 	}
 
 	_, err = db.Exec(`
 		INSERT INTO addresses (	user_id, 
-								city, 
-								district, 
-								ward, 
-								street, 
-								house_number,
+								name,
+								address,
 								is_default)
-		VALUES (?, ?, ?, ?, ?, ?, ?);
-		`, userID, city, district, ward, street, houseNumber, isDefault)
+		VALUES (?, ?, ?, ?);
+		`, userID, name, address, isDefault)
 	if err != nil {
 		return fmt.Errorf("Error adding address! Please try again")
 	}
@@ -54,16 +58,14 @@ func Add(userID int, city, district, ward, street, houseNumber string, c echo.Co
 func Get(userID int, db *sql.DB) ([]Address, error) {
 	rows, err := db.Query(`
 		SELECT 	address_id, 
-				city, 
-				district, 
-				ward, 
-				street, 
-				house_number, 
+				name,
+				address, 
 				is_default
 		FROM addresses
 		WHERE user_id = ?;
 		`, userID)
 	if err != nil {
+		fmt.Println(err)
 		return nil, fmt.Errorf("Error getting addresses! Please try again")
 	}
 	defer rows.Close()
@@ -71,28 +73,57 @@ func Get(userID int, db *sql.DB) ([]Address, error) {
 	var addresses []Address
 	for rows.Next() {
 		var address Address
-		err := rows.Scan(&address.AddressID, &address.City, &address.District, &address.Ward, &address.Street, &address.HouseNumber, &address.IsDefault)
+		err := rows.Scan(&address.AddressID, &address.Name, &address.Address, &address.IsDefault)
 		if err != nil {
+			fmt.Println(err)
 			return nil, fmt.Errorf("Error getting addresses! Please try again")
 		}
 		addresses = append(addresses, address)
 	}
 	if err = rows.Err(); err != nil {
+		fmt.Println(err)
 		return nil, fmt.Errorf("Error getting addresses! Please try again")
 	}
 	return addresses, nil
 }
 
-func Update(userID int, addressID int, city, district, ward, street, houseNumber string, c echo.Context, db *sql.DB) error {
+func GetDefault(userID int, db *sql.DB) (Address, error) {
+	row := db.QueryRow(`
+		SELECT 	address_id, 
+				name, 
+				address, 
+				is_default
+		FROM addresses
+		WHERE user_id = ? AND is_default = 1;
+		`, userID)
+
+	var address Address
+	if err := row.Scan(&address.AddressID, &address.Name, &address.Address, &address.IsDefault); err != nil {
+		return Address{}, fmt.Errorf("Error getting default address! Please try again")
+	}
+	return address, nil
+}
+
+func Update(userID int, addressID int, name, address string, c echo.Context, db *sql.DB) error {
+	row := db.QueryRow(`
+		SELECT address_id 
+		FROM addresses 
+		WHERE 	user_id = ? AND 
+				name = ? AND 
+				address_id != ? 
+		LIMIT 1
+		`, userID, name, addressID)
+	var existingID int
+	if err := row.Scan(&existingID); err == nil {
+		return fmt.Errorf("Another address with this name already exists!")
+	}
+
 	_, err := db.Exec(`
 		UPDATE addresses
-		SET city = ?,
-			district = ?,
-			ward = ?,
-			street = ?,
-			house_number = ?
+		SET name = ?,
+			address = ?
 		WHERE user_id = ? AND address_id = ?;
-		`, city, district, ward, street, houseNumber, userID)
+		`, name, address, userID, addressID)
 
 	if err != nil {
 		return fmt.Errorf("Error updating address! Please try again")
@@ -101,7 +132,6 @@ func Update(userID int, addressID int, city, district, ward, street, houseNumber
 }
 
 func SetDefault(userID int, addressID int, db *sql.DB) error {
-	// Start transaction
 	transaction, err := db.Begin()
 	if err != nil {
 		return err
@@ -112,7 +142,6 @@ func SetDefault(userID int, addressID int, db *sql.DB) error {
 		}
 	}()
 
-	// Set current default address to non-default
 	_, err = transaction.Exec(`
 		UPDATE addresses 
 		SET is_default = 0
@@ -122,7 +151,6 @@ func SetDefault(userID int, addressID int, db *sql.DB) error {
 		return fmt.Errorf("Error updating address! Please try again")
 	}
 
-	// Set the specified address as default
 	_, err = transaction.Exec(`
 		UPDATE addresses
 		SET is_default = 1
@@ -132,7 +160,6 @@ func SetDefault(userID int, addressID int, db *sql.DB) error {
 		return fmt.Errorf("Error updating address! Please try again")
 	}
 
-	// Commit the transaction
 	if err = transaction.Commit(); err != nil {
 		return fmt.Errorf("Error updating address! Please try again")
 	}
@@ -141,6 +168,21 @@ func SetDefault(userID int, addressID int, db *sql.DB) error {
 }
 
 func Delete(userID int, addressID int, db *sql.DB) error {
+	row := db.QueryRow(`
+		SELECT is_default
+		FROM addresses 
+		WHERE user_id = ? AND address_id = ?;
+		`, userID, addressID)
+
+	var isDefault int
+	if err := row.Scan(&isDefault); err != nil {
+		return fmt.Errorf("Error deleting address! Please try again")
+	}
+
+	if isDefault == 1 {
+		return fmt.Errorf("Can not delete default address")
+	}
+
 	_, err := db.Exec(`
 		DELETE FROM addresses
 		WHERE user_id = ? AND address_id = ?;

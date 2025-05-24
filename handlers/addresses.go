@@ -21,7 +21,7 @@ func AddAddress(c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
-	if err := addresses.Add(userID, address.City, address.District, address.Ward, address.Street, address.HouseNumber, c, db); err != nil {
+	if err := addresses.Add(userID, address.Name, address.Address, c, db); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
@@ -42,6 +42,20 @@ func GetAddresses(c echo.Context, db *sql.DB) error {
 	return c.JSON(http.StatusOK, addresses)
 }
 
+func GetDefaultAddress(c echo.Context, db *sql.DB) error {
+	userID, err := users.GetID(c, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err)
+	}
+
+	address, err := addresses.GetDefault(userID, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err)
+	}
+
+	return c.JSON(http.StatusOK, address)
+}
+
 func UpdateAddress(c echo.Context, db *sql.DB) error {
 	userID, err := users.GetID(c, db)
 	if err != nil {
@@ -58,7 +72,7 @@ func UpdateAddress(c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
-	if err := addresses.Update(userID, addressID, address.City, address.District, address.Ward, address.Street, address.HouseNumber, c, db); err != nil {
+	if err := addresses.Update(userID, addressID, address.Name, address.Address, c, db); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 

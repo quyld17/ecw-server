@@ -29,6 +29,12 @@ func RegisterAPIHandlers(router *echo.Echo, db *sql.DB) {
 	}))
 
 	// Addresses
+	router.GET("/addresses", middlewares.JWTAuthorize(func(c echo.Context) error {
+		return handlers.GetAddresses(c, db)
+	}))
+	router.GET("/default-address", middlewares.JWTAuthorize(func(c echo.Context) error {
+		return handlers.GetDefaultAddress(c, db)
+	}))
 	router.POST("/addresses", middlewares.JWTAuthorize(func(c echo.Context) error {
 		return handlers.AddAddress(c, db)
 	}))

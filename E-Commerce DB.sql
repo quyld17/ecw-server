@@ -14,11 +14,8 @@ CREATE TABLE `users` (
 CREATE TABLE `addresses` (
   `address_id` INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
   `user_id` INT NOT NULL,
-  `city` VARCHAR(255) NOT NULL,
-  `district` VARCHAR(255) NOT NULL,
-  `ward` VARCHAR(255) NOT NULL,
-  `street` VARCHAR(255) NOT NULL,
-  `house_number` VARCHAR(255) NOT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `address` VARCHAR(255) NOT NULL,
   `is_default` TINYINT NOT NULL,
   FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
 );
@@ -63,7 +60,7 @@ CREATE TABLE `cart_products` (
   `user_id` INT NOT NULL,
   `product_id` INT NOT NULL,
   `quantity` INT NOT NULL,
-  `selected` BOOLEAN DEFAULT FALSE
+  `selected` tinyint DEFAULT 0
 );
 
 CREATE UNIQUE INDEX `order_products_index_0` ON `order_products` (`order_id`, `product_id`);

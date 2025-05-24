@@ -34,11 +34,10 @@ func GetProducts(selected string, userID int, c echo.Context, db *sql.DB) ([]pro
 
 	if selected == "true" {
 		query += "AND cp.selected = ?"
-		args = append(args, true)
+		args = append(args, 1)
 	}
 
 	rows, err := db.Query(query, args...)
-
 	if err != nil {
 		return nil, err
 	}

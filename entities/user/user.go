@@ -92,12 +92,7 @@ func GetDetails(userID int, db *sql.DB) (*User, *address.Address, error) {
 	defer row.Close()
 
 	row, err = db.Query(`
-		SELECT
-			city,
-			district,
-			ward,
-			street,
-			house_number
+		SELECT address
 		FROM addresses
 		WHERE
 			user_id = ? AND
@@ -110,17 +105,13 @@ func GetDetails(userID int, db *sql.DB) (*User, *address.Address, error) {
 
 	var address address.Address
 	if row.Next() {
-		var nullCity, nullDistrict, nullWard, nullStreet, nullHouseNumber sql.NullString
-		err := row.Scan(&nullCity, &nullDistrict, &nullWard, &nullStreet, &nullHouseNumber)
+		var nullAddress sql.NullString
+		err := row.Scan(&nullAddress)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		address.City = nullCity.String
-		address.District = nullDistrict.String
-		address.Ward = nullWard.String
-		address.Street = nullStreet.String
-		address.HouseNumber = nullHouseNumber.String
+		address.Address = nullAddress.String
 	}
 
 	return &user, &address, nil
