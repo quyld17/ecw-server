@@ -35,6 +35,12 @@ func RegisterAPIHandlers(router *echo.Echo, db *sql.DB) {
 	router.PUT("/addresses/:addressID", middlewares.JWTAuthorize(func(c echo.Context) error {
 		return handlers.UpdateAddress(c, db)
 	}))
+	router.PUT("/addresses/default/:addressID", middlewares.JWTAuthorize(func(c echo.Context) error {
+		return handlers.SetDefaultAddress(c, db)
+	}))
+	router.DELETE("/addresses/:addressID", middlewares.JWTAuthorize(func(c echo.Context) error {
+		return handlers.DeleteAddress(c, db)
+	}))
 
 	// Products
 	router.GET("/products", func(c echo.Context) error {

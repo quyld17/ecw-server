@@ -99,4 +99,4 @@ func DeleteAddress(c echo.Context, db *sql.DB) error {
 	}
 
 	return c.JSON(http.StatusOK, "Address deleted successfully")
-}	
+}
