@@ -68,21 +68,3 @@ func UpdateUserDetails(c echo.Context, db *sql.DB) error {
 
 	return c.JSON(http.StatusOK, "Updated successfully!")
 }
-
-func UpdateUserAddress(c echo.Context, db *sql.DB) error {
-	userID, err := users.GetID(c, db)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
-	}
-
-	var address users.Address
-	if err := c.Bind(&address); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err)
-	}
-
-	if err := users.UpdateAddress(userID, address.City, address.District, address.Ward, address.Street, address.HouseNumber, c, db); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err)
-	}
-
-	return c.JSON(http.StatusOK, "Updated successfully!")
-}

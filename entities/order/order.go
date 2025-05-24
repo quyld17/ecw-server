@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	addresses "github.com/quyld17/E-Commerce-Website/entities/address"
 	"github.com/quyld17/E-Commerce-Website/entities/cart"
 	products "github.com/quyld17/E-Commerce-Website/entities/product"
 	users "github.com/quyld17/E-Commerce-Website/entities/user"
@@ -30,7 +31,7 @@ type OrderProduct struct {
 	ImageURL    string `json:"image_url"`
 }
 
-func Create(user *users.User, address *users.Address, orderedProducts []products.Product, userID, totalPrice int, paymenMethod string, c echo.Context, db *sql.DB) error {
+func Create(user *users.User, address *addresses.Address, orderedProducts []products.Product, userID, totalPrice int, paymenMethod string, c echo.Context, db *sql.DB) error {
 	// Start a transaction
 	transaction, err := db.Begin()
 	if err != nil {

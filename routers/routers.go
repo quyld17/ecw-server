@@ -28,6 +28,14 @@ func RegisterAPIHandlers(router *echo.Echo, db *sql.DB) {
 		return handlers.UpdateUserDetails(c, db)
 	}))
 
+	// Addresses
+	router.POST("/addresses", middlewares.JWTAuthorize(func(c echo.Context) error {
+		return handlers.AddAddress(c, db)
+	}))
+	router.PUT("/addresses/:addressID", middlewares.JWTAuthorize(func(c echo.Context) error {
+		return handlers.UpdateAddress(c, db)
+	}))
+
 	// Products
 	router.GET("/products", func(c echo.Context) error {
 		return handlers.GetProductsByPage(c, db)

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	address "github.com/quyld17/E-Commerce-Website/entities/address"
 )
 
 type User struct {
@@ -18,15 +19,6 @@ type User struct {
 	DateOfBirthString string    `json:"date_of_birth_string"`
 	PhoneNumber       string    `json:"phone_number"`
 	Gender            int       `json:"gender"`
-}
-
-type Address struct {
-	City        string `json:"city"`
-	District    string `json:"district"`
-	Ward        string `json:"ward"`
-	Street      string `json:"street"`
-	HouseNumber string `json:"house_number"`
-	IsDefault   int    `json:"is_default"`
 }
 
 func Authenticate(account User, db *sql.DB) error {
@@ -60,7 +52,7 @@ func Create(newUser User, db *sql.DB) error {
 	return nil
 }
 
-func GetDetails(userID int, db *sql.DB) (*User, *Address, error) {
+func GetDetails(userID int, db *sql.DB) (*User, *address.Address, error) {
 	row, err := db.Query(`
 		SELECT
 			email,
@@ -116,7 +108,7 @@ func GetDetails(userID int, db *sql.DB) (*User, *Address, error) {
 	}
 	defer row.Close()
 
-	var address Address
+	var address address.Address
 	if row.Next() {
 		var nullCity, nullDistrict, nullWard, nullStreet, nullHouseNumber sql.NullString
 		err := row.Scan(&nullCity, &nullDistrict, &nullWard, &nullStreet, &nullHouseNumber)
@@ -188,96 +180,5 @@ func UpdateDetails(userID int, fullName, phoneNumber string, gender int, dateOfB
 	if err != nil {
 		return fmt.Errorf("Error updating profile! Please try again")
 	}
-	return nil
-}
-
-func AddAddress(userID int, city, district, ward, street, houseNumber string, c echo.Context, db *sql.DB) error {
-	// Check if user has any addresses
-	rows, err := db.Query(`
-		SELECT address_id 
-		FROM addresses 
-		WHERE user_id = ?
-		LIMIT 1`, userID)
-	if err != nil {
-		return fmt.Errorf("Error adding address! Please try again")
-	}
-	defer rows.Close()
-
-	isDefault := 0
-	if !rows.Next() {
-		// No existing addresses found, set this as default
-		isDefault = 1
-	}
-
-	_, err = db.Exec(`
-		INSERT INTO addresses (	user_id, 
-								city, 
-								district, 
-								ward, 
-								street, 
-								house_number,
-								is_default)
-		VALUES (?, ?, ?, ?, ?, ?, ?);
-		`, userID, city, district, ward, street, houseNumber, isDefault)
-	if err != nil {
-		return fmt.Errorf("Error adding address! Please try again")
-	}
-	return nil
-}
-
-func UpdateAddress(userID int, city, district, ward, street, houseNumber string, c echo.Context, db *sql.DB) error {
-	_, err := db.Exec(`
-		UPDATE addresses
-		SET city = ?,
-			district = ?,
-			ward = ?,
-			street = ?,
-			house_number = ?
-		WHERE user_id = ?;
-		`, city, district, ward, street, houseNumber, userID)
-
-	if err != nil {
-		return fmt.Errorf("Error updating address! Please try again")
-	}
-	return nil
-}
-
-func SetDefaultAddress(userID int, addressID int, db *sql.DB) error {
-	// Start transaction
-	transaction, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			transaction.Rollback()
-		}
-	}()
-
-	// Set current default address to non-default
-	_, err = transaction.Exec(`
-		UPDATE addresses 
-		SET is_default = 0
-		WHERE user_id = ? AND is_default = 1;
-		`, userID)
-	if err != nil {
-		return fmt.Errorf("Error updating address! Please try again")
-	}
-
-	// Set the specified address as default
-	_, err = transaction.Exec(`
-		UPDATE addresses
-		SET is_default = 1
-		WHERE user_id = ? AND address_id = ?;
-		`, userID, addressID)
-	if err != nil {
-		return fmt.Errorf("Error updating address! Please try again")
-	}
-
-	// Commit the transaction
-	if err = transaction.Commit(); err != nil {
-		return fmt.Errorf("Error updating address! Please try again")
-	}
-
 	return nil
 }
