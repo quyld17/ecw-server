@@ -28,6 +28,20 @@ func AddAddress(c echo.Context, db *sql.DB) error {
 	return c.JSON(http.StatusOK, "Address added successfully")
 }
 
+func GetAddresses(c echo.Context, db *sql.DB) error {
+	userID, err := users.GetID(c, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err)
+	}
+
+	addresses, err := addresses.Get(userID, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err)
+	}
+
+	return c.JSON(http.StatusOK, addresses)
+}
+
 func UpdateAddress(c echo.Context, db *sql.DB) error {
 	userID, err := users.GetID(c, db)
 	if err != nil {
@@ -50,3 +64,39 @@ func UpdateAddress(c echo.Context, db *sql.DB) error {
 
 	return c.JSON(http.StatusOK, "Address updated successfully")
 }
+
+func SetDefaultAddress(c echo.Context, db *sql.DB) error {
+	userID, err := users.GetID(c, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err)
+	}
+
+	addressID, err := strconv.Atoi(c.Param("addressID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err)
+	}
+
+	if err := addresses.SetDefault(userID, addressID, db); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err)
+	}
+
+	return c.JSON(http.StatusOK, "Set default address successfully")
+}
+
+func DeleteAddress(c echo.Context, db *sql.DB) error {
+	userID, err := users.GetID(c, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err)
+	}
+
+	addressID, err := strconv.Atoi(c.Param("addressID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err)
+	}
+
+	if err := addresses.Delete(userID, addressID, db); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err)
+	}
+
+	return c.JSON(http.StatusOK, "Address deleted successfully")
+}	

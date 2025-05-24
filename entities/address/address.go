@@ -51,8 +51,8 @@ func Add(userID int, city, district, ward, street, houseNumber string, c echo.Co
 	return nil
 }
 
-func Get(userID int, addressID int, db *sql.DB) (*Address, error) {
-	row := db.QueryRow(`
+func Get(userID int, db *sql.DB) ([]Address, error) {
+	rows, err := db.Query(`
 		SELECT 	address_id, 
 				city, 
 				district, 
@@ -61,15 +61,26 @@ func Get(userID int, addressID int, db *sql.DB) (*Address, error) {
 				house_number, 
 				is_default
 		FROM addresses
-		WHERE user_id = ? AND address_id = ?;
-		`, userID, addressID)
-
-	var address Address
-	err := row.Scan(&address.AddressID, &address.City, &address.District, &address.Ward, &address.Street, &address.HouseNumber, &address.IsDefault)
+		WHERE user_id = ?;
+		`, userID)
 	if err != nil {
-		return nil, fmt.Errorf("Error getting address! Please try again")
+		return nil, fmt.Errorf("Error getting addresses! Please try again")
 	}
-	return &address, nil
+	defer rows.Close()
+
+	var addresses []Address
+	for rows.Next() {
+		var address Address
+		err := rows.Scan(&address.AddressID, &address.City, &address.District, &address.Ward, &address.Street, &address.HouseNumber, &address.IsDefault)
+		if err != nil {
+			return nil, fmt.Errorf("Error getting addresses! Please try again")
+		}
+		addresses = append(addresses, address)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("Error getting addresses! Please try again")
+	}
+	return addresses, nil
 }
 
 func Update(userID int, addressID int, city, district, ward, street, houseNumber string, c echo.Context, db *sql.DB) error {
@@ -126,5 +137,16 @@ func SetDefault(userID int, addressID int, db *sql.DB) error {
 		return fmt.Errorf("Error updating address! Please try again")
 	}
 
+	return nil
+}
+
+func Delete(userID int, addressID int, db *sql.DB) error {
+	_, err := db.Exec(`
+		DELETE FROM addresses
+		WHERE user_id = ? AND address_id = ?;
+		`, userID, addressID)
+	if err != nil {
+		return fmt.Errorf("Error deleting address! Please try again")
+	}
 	return nil
 }
