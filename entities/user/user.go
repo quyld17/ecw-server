@@ -77,12 +77,27 @@ func GetDetails(userID int, db *sql.DB) (*User, *Address, error) {
 
 	var user User
 	if row.Next() {
-		err := row.Scan(&user.Email, &user.FullName, &user.PhoneNumber, &user.Gender, &user.DateOfBirth)
+		var nullFullName, nullPhoneNumber sql.NullString
+		var nullGender sql.NullInt64
+		var nullDateOfBirth sql.NullTime
+		var email string
+
+		err := row.Scan(&email, &nullFullName, &nullPhoneNumber, &nullGender, &nullDateOfBirth)
 		if err != nil {
 			return nil, nil, err
 		}
+
+		user.Email = email
+		user.FullName = nullFullName.String
+		user.PhoneNumber = nullPhoneNumber.String
+		user.Gender = int(nullGender.Int64)
+
+		if nullDateOfBirth.Valid {
+			user.DateOfBirth = nullDateOfBirth.Time
+			user.DateOfBirthString = user.DateOfBirth.Format("2006-01-02")
+		}
 	}
-	user.DateOfBirthString = user.DateOfBirth.Format("2006-01-02")
+	defer row.Close()
 
 	row, err = db.Query(`
 		SELECT
@@ -103,10 +118,17 @@ func GetDetails(userID int, db *sql.DB) (*User, *Address, error) {
 
 	var address Address
 	if row.Next() {
-		err := row.Scan(&address.City, &address.District, &address.Ward, &address.Street, &address.HouseNumber)
+		var nullCity, nullDistrict, nullWard, nullStreet, nullHouseNumber sql.NullString
+		err := row.Scan(&nullCity, &nullDistrict, &nullWard, &nullStreet, &nullHouseNumber)
 		if err != nil {
 			return nil, nil, err
 		}
+
+		address.City = nullCity.String
+		address.District = nullDistrict.String
+		address.Ward = nullWard.String
+		address.Street = nullStreet.String
+		address.HouseNumber = nullHouseNumber.String
 	}
 
 	return &user, &address, nil
@@ -149,6 +171,112 @@ func ChangePassword(userID int, password, newPassword string, c echo.Context, db
 		}
 	} else {
 		return fmt.Errorf("Wrong password! Plase try again")
+	}
+
+	return nil
+}
+
+func UpdateDetails(userID int, fullName, phoneNumber string, gender int, dateOfBirth time.Time, c echo.Context, db *sql.DB) error {
+	_, err := db.Exec(`
+		UPDATE users
+		SET full_name = ?, 
+			phone_number = ?, 
+			gender = ?, 
+			date_of_birth = ?
+		WHERE user_id = ?;
+		`, fullName, phoneNumber, gender, dateOfBirth, userID)
+	if err != nil {
+		return fmt.Errorf("Error updating profile! Please try again")
+	}
+	return nil
+}
+
+func AddAddress(userID int, city, district, ward, street, houseNumber string, c echo.Context, db *sql.DB) error {
+	// Check if user has any addresses
+	rows, err := db.Query(`
+		SELECT address_id 
+		FROM addresses 
+		WHERE user_id = ?
+		LIMIT 1`, userID)
+	if err != nil {
+		return fmt.Errorf("Error adding address! Please try again")
+	}
+	defer rows.Close()
+
+	isDefault := 0
+	if !rows.Next() {
+		// No existing addresses found, set this as default
+		isDefault = 1
+	}
+
+	_, err = db.Exec(`
+		INSERT INTO addresses (	user_id, 
+								city, 
+								district, 
+								ward, 
+								street, 
+								house_number,
+								is_default)
+		VALUES (?, ?, ?, ?, ?, ?, ?);
+		`, userID, city, district, ward, street, houseNumber, isDefault)
+	if err != nil {
+		return fmt.Errorf("Error adding address! Please try again")
+	}
+	return nil
+}
+
+func UpdateAddress(userID int, city, district, ward, street, houseNumber string, c echo.Context, db *sql.DB) error {
+	_, err := db.Exec(`
+		UPDATE addresses
+		SET city = ?,
+			district = ?,
+			ward = ?,
+			street = ?,
+			house_number = ?
+		WHERE user_id = ?;
+		`, city, district, ward, street, houseNumber, userID)
+
+	if err != nil {
+		return fmt.Errorf("Error updating address! Please try again")
+	}
+	return nil
+}
+
+func SetDefaultAddress(userID int, addressID int, db *sql.DB) error {
+	// Start transaction
+	transaction, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			transaction.Rollback()
+		}
+	}()
+
+	// Set current default address to non-default
+	_, err = transaction.Exec(`
+		UPDATE addresses 
+		SET is_default = 0
+		WHERE user_id = ? AND is_default = 1;
+		`, userID)
+	if err != nil {
+		return fmt.Errorf("Error updating address! Please try again")
+	}
+
+	// Set the specified address as default
+	_, err = transaction.Exec(`
+		UPDATE addresses
+		SET is_default = 1
+		WHERE user_id = ? AND address_id = ?;
+		`, userID, addressID)
+	if err != nil {
+		return fmt.Errorf("Error updating address! Please try again")
+	}
+
+	// Commit the transaction
+	if err = transaction.Commit(); err != nil {
+		return fmt.Errorf("Error updating address! Please try again")
 	}
 
 	return nil

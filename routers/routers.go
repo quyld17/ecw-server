@@ -21,6 +21,9 @@ func RegisterAPIHandlers(router *echo.Echo, db *sql.DB) {
 	router.GET("/users/me", middlewares.JWTAuthorize(func(c echo.Context) error {
 		return handlers.GetUserDetails(c, db)
 	}))
+	router.PUT("/users/password", middlewares.JWTAuthorize(func(c echo.Context) error {
+		return handlers.UpdateUserPassword(c, db)
+	}))
 	router.PUT("/users/me", middlewares.JWTAuthorize(func(c echo.Context) error {
 		return handlers.UpdateUserDetails(c, db)
 	}))

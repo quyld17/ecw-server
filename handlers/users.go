@@ -25,7 +25,7 @@ func GetUserDetails(c echo.Context, db *sql.DB) error {
 	})
 }
 
-func UpdateUserDetails(c echo.Context, db *sql.DB) error {
+func UpdateUserPassword(c echo.Context, db *sql.DB) error {
 	userID, err := users.GetID(c, db)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
@@ -45,6 +45,42 @@ func UpdateUserDetails(c echo.Context, db *sql.DB) error {
 	}
 
 	if err := users.ChangePassword(userID, user.Password, user.NewPassword, c, db); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err)
+	}
+
+	return c.JSON(http.StatusOK, "Updated successfully!")
+}
+
+func UpdateUserDetails(c echo.Context, db *sql.DB) error {
+	userID, err := users.GetID(c, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err)
+	}
+
+	var user users.User
+	if err := c.Bind(&user); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err)
+	}
+
+	if err := users.UpdateDetails(userID, user.FullName, user.PhoneNumber, user.Gender, user.DateOfBirth, c, db); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err)
+	}
+
+	return c.JSON(http.StatusOK, "Updated successfully!")
+}
+
+func UpdateUserAddress(c echo.Context, db *sql.DB) error {
+	userID, err := users.GetID(c, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err)
+	}
+
+	var address users.Address
+	if err := c.Bind(&address); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err)
+	}
+
+	if err := users.UpdateAddress(userID, address.City, address.District, address.Ward, address.Street, address.HouseNumber, c, db); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
