@@ -34,7 +34,8 @@ CREATE TABLE `order_products` (
   `product_id` INT NOT NULL,
   `product_name` VARCHAR(255) NOT NULL,
   `quantity` INT NOT NULL,
-  `price` DECIMAL(12,0) NOT NULL
+  `price` DECIMAL(12,0) NOT NULL,
+  `image_url` VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE `products` (

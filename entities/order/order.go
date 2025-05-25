@@ -32,7 +32,6 @@ type OrderProduct struct {
 }
 
 func Create(user *users.User, address *addresses.Address, orderedProducts []products.Product, userID, totalPrice int, paymenMethod string, c echo.Context, db *sql.DB) error {
-	// Start a transaction
 	transaction, err := db.Begin()
 	if err != nil {
 		return err
@@ -44,18 +43,20 @@ func Create(user *users.User, address *addresses.Address, orderedProducts []prod
 	}()
 
 	result, err := transaction.Exec(`
-		INSERT INTO`+"`orders`"+`(user_id, total_price, payment_method, status) 
+		INSERT INTO`+"`orders`"+`
+			(user_id, 
+			total_price, 
+			payment_method, 
+			status) 
 		VALUES (?, ?, ?, ?)
 		`, userID, totalPrice, paymenMethod, "Delivering")
 	if err != nil {
 		return err
 	}
-
 	orderID, err := result.LastInsertId()
 	if err != nil {
 		return err
 	}
-
 	orderProduct, err := transaction.Prepare(`	
 		INSERT INTO order_products 
 			(order_id, 
@@ -88,7 +89,6 @@ func Create(user *users.User, address *addresses.Address, orderedProducts []prod
 		if err != nil {
 			return err
 		}
-
 		if err = cart.DeleteProduct(userID, product.ProductID, c, db); err != nil {
 			return err
 		}
@@ -111,7 +111,8 @@ func GetByPage(userID int, c echo.Context, db *sql.DB) ([]Order, error) {
 			created_at,
 			payment_method
 		FROM `+"`orders`"+`
-		WHERE user_id = ?;
+		WHERE user_id = ?
+		ORDER BY created_at DESC;
 		`, userID)
 	if err != nil {
 		return nil, err
