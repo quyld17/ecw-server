@@ -44,3 +44,16 @@ func GetProduct(productID string, c echo.Context, db *sql.DB) error {
 		"product_images": productImages,
 	})
 }
+
+func SearchProducts(c echo.Context, db *sql.DB) error {
+	query := c.QueryParam("q")
+	if query == "" {
+		return c.JSON(http.StatusOK, []products.Product{})
+	}
+
+	products, err := products.Search(query, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to search products")
+	}
+	return c.JSON(http.StatusOK, products)
+}

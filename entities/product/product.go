@@ -111,3 +111,40 @@ func GetProductDetails(productID int, c echo.Context, db *sql.DB) (*Product, []P
 
 	return &productDetail, productImages, nil
 }
+
+func Search(query string, db *sql.DB) ([]Product, error) {
+	rows, err := db.Query(`
+		SELECT 
+			products.product_id,
+			products.product_name,
+			products.price,
+			product_images.image_url
+		FROM 
+			products
+		JOIN 
+			product_images 
+		ON 
+			products.product_id = product_images.product_id
+		WHERE
+			products.product_name LIKE ? AND
+			product_images.is_thumbnail = 1 AND 
+			products.in_stock_quantity > 0
+		LIMIT 5;
+		`, "%"+query+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	products := []Product{}
+	for rows.Next() {
+		var product Product
+		err := rows.Scan(&product.ProductID, &product.ProductName, &product.Price, &product.ImageURL)
+		if err != nil {
+			return nil, err
+		}
+		products = append(products, product)
+	}
+
+	return products, nil
+}

@@ -56,6 +56,9 @@ func RegisterAPIHandlers(router *echo.Echo, db *sql.DB) {
 		productID := c.Param("productID")
 		return handlers.GetProduct(productID, c, db)
 	})
+	router.GET("/products/search", func(c echo.Context) error {
+		return handlers.SearchProducts(c, db)
+	})
 
 	// Categories
 	router.GET("/categories", func(c echo.Context) error {
