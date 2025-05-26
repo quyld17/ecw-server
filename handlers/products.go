@@ -17,7 +17,22 @@ func GetProductsByPage(c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
-	products, numOfProds, err := products.GetByPage(c, db, itemsPerPage, offset)
+	sortParam := c.QueryParam("sort")
+	var orderBy string
+	switch sortParam {
+		case "price_desc":
+			orderBy = "products.price DESC"
+		case "price_asc":
+			orderBy = "products.price ASC"
+		case "name_desc":
+			orderBy = "products.product_name DESC"
+		case "name_asc":
+			orderBy = "products.product_name ASC"
+		default:
+			orderBy = "products.product_id DESC"
+	}
+
+	products, numOfProds, err := products.GetByPage(c, db, itemsPerPage, offset, orderBy)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Unable to retrieve products at the moment. Please try again")
 	}

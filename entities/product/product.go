@@ -33,8 +33,8 @@ type ProductSize struct {
 	Quantity int    `json:"quantity"`
 }
 
-func GetByPage(c echo.Context, db *sql.DB, limit, offset int) ([]Product, int, error) {
-	rows, err := db.Query(`
+func GetByPage(c echo.Context, db *sql.DB, limit, offset int, orderBy string) ([]Product, int, error) {
+	query := `
         SELECT 
 			products.product_id, 
 			products.category_id, 
@@ -47,9 +47,11 @@ func GetByPage(c echo.Context, db *sql.DB, limit, offset int) ([]Product, int, e
 		WHERE 
 			product_images.is_thumbnail = 1 AND
 			products.total_quantity > 0
+		ORDER BY ` + orderBy + `
 		LIMIT ? 
-		OFFSET ?;
-		`, limit, offset)
+		OFFSET ?;`
+
+	rows, err := db.Query(query, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -58,7 +60,8 @@ func GetByPage(c echo.Context, db *sql.DB, limit, offset int) ([]Product, int, e
 	var numOfProds int
 	row := db.QueryRow(`
 		SELECT COUNT(*) 
-		FROM products;
+		FROM products
+		WHERE total_quantity > 0;
 		`)
 	if err := row.Scan(&numOfProds); err != nil {
 		return nil, 0, err
