@@ -125,9 +125,13 @@ func GetProductDetails(productID int, c echo.Context, db *sql.DB) (*Product, []P
 			sizes.size_id,
 			sizes.size_name,
 			size_quantity.quantity
-		FROM sizes
-		JOIN size_quantity ON sizes.size_id = size_quantity.size_id
-		WHERE size_quantity.product_id = ?;
+		FROM 
+			sizes
+		JOIN 
+			size_quantity ON sizes.size_id = size_quantity.size_id
+		WHERE 
+			size_quantity.product_id = ? AND
+			size_quantity.quantity > 0;
 		`, productID)
 	if err != nil {
 		return nil, nil, nil, err

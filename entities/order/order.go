@@ -85,12 +85,25 @@ func Create(orderedProducts []products.Product, userID, totalPrice int, paymenMe
 	}
 	defer adjustQuantity.Close()
 
+	updateTotalQuantity, err := transaction.Prepare(`
+		UPDATE products 
+		SET total_quantity = total_quantity - ?
+		WHERE product_id = ?;`)
+	if err != nil {
+		return err
+	}
+	defer updateTotalQuantity.Close()
+
 	for _, product := range orderedProducts {
 		_, err := orderProduct.Exec(orderID, product.ProductID, product.ProductName, product.Quantity, product.Price, product.ImageURL, product.SizeID)
 		if err != nil {
 			return err
 		}
 		_, err = adjustQuantity.Exec(product.Quantity, product.SizeID, product.ProductID)
+		if err != nil {
+			return err
+		}
+		_, err = updateTotalQuantity.Exec(product.Quantity, product.ProductID)
 		if err != nil {
 			return err
 		}
