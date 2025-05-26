@@ -47,7 +47,7 @@ func GetOrders(c echo.Context, db *sql.DB) error {
 
 	orders, err := orders.GetByPage(userID, c, db)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Unable to retrieve orders at the moment. Please try again")
+		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
 
 	return c.JSON(http.StatusOK, orders)

@@ -68,11 +68,45 @@ func GetProducts(selected string, userID int, c echo.Context, db *sql.DB) ([]pro
 }
 
 func UpSertProduct(userID int, productID int, quantity int, sizeID int, c echo.Context, db *sql.DB) error {
-	_, err := db.Exec(`
-		INSERT INTO cart_products (user_id, product_id, quantity, size_id, selected) 
-		VALUES (?, ?, ?, ?, 0)
-		ON DUPLICATE KEY UPDATE quantity = quantity + ?;
-	`, userID, productID, quantity, sizeID, quantity)
+	var availableQuantity int
+	err := db.QueryRow(`
+		SELECT quantity 
+		FROM size_quantity 
+		WHERE product_id = ? AND size_id = ?
+	`, productID, sizeID).Scan(&availableQuantity)
+	if err != nil {
+		return fmt.Errorf("Failed to check product availability")
+	}
+
+	var existingQuantity int
+	err = db.QueryRow(`
+		SELECT quantity 
+		FROM cart_products 
+		WHERE user_id = ? AND product_id = ? AND size_id = ?
+	`, userID, productID, sizeID).Scan(&existingQuantity)
+
+	if err == sql.ErrNoRows {
+		if quantity > availableQuantity {
+			quantity = availableQuantity
+		}
+		_, err = db.Exec(`
+			INSERT INTO cart_products (user_id, product_id, quantity, size_id, selected)
+			VALUES (?, ?, ?, ?, 0)
+		`, userID, productID, quantity, sizeID)
+	} else if err != nil {
+		return fmt.Errorf("Failed to check cart")
+	} else {
+		newQuantity := existingQuantity + quantity
+		if newQuantity > availableQuantity {
+			newQuantity = availableQuantity
+		}
+		_, err = db.Exec(`
+			UPDATE cart_products 
+			SET quantity = ?
+			WHERE user_id = ? AND product_id = ? AND size_id = ?
+		`, newQuantity, userID, productID, sizeID)
+	}
+
 	if err != nil {
 		return fmt.Errorf("Failed to add product to cart! Please try again")
 	}
