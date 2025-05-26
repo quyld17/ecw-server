@@ -172,7 +172,7 @@ func Search(query string, db *sql.DB) ([]Product, error) {
 		WHERE
 			products.product_name LIKE ? AND
 			product_images.is_thumbnail = 1 AND 
-			
+			products.total_quantity > 0
 		LIMIT 5;
 		`, "%"+query+"%")
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -21,30 +22,38 @@ type User struct {
 }
 
 func Authenticate(account User, db *sql.DB) error {
-	rows, err := db.Query(`	
-		SELECT 
-			email, 
-			password 
+	var hashedPassword []byte
+	err := db.QueryRow(`	
+		SELECT password 
 		FROM users
-		WHERE 
-			email = ? AND 
-			password = ?
-		`, account.Email, account.Password)
+		WHERE email = ?
+		`, account.Email).Scan(&hashedPassword)
+
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("Invalid email or password! Please try again")
+	}
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
-	if rows.Next() {
-		return nil
+
+	err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(account.Password))
+	if err != nil {
+		return fmt.Errorf("Invalid email or password! Please try again")
 	}
-	return fmt.Errorf("Invalid email or password! Please try again")
+
+	return nil
 }
 
 func Create(newUser User, db *sql.DB) error {
-	_, err := db.Exec(`	
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newUser.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("Error processing password")
+	}
+
+	_, err = db.Exec(`	
 		INSERT INTO users (email, password) 
 		VALUES (?, ?)
-		`, newUser.Email, newUser.Password)
+		`, newUser.Email, hashedPassword)
 	if err != nil {
 		return err
 	}
