@@ -13,19 +13,26 @@ func GetProducts(selected string, userID int, c echo.Context, db *sql.DB) ([]pro
 
 	query := `
 		SELECT 
+			cp.id,
 			cp.product_id, 
 			cp.quantity, 
 			cp.selected, 
+			cp.size_id,
 			p.product_name, 
 			p.price, 
-			p.in_stock_quantity, 
-			pi.image_url 
+			sq.quantity,
+			pi.image_url,
+			s.size_name
 		FROM 
 			cart_products cp
 		JOIN 
 			products p ON cp.product_id = p.product_id
 		JOIN 
 			product_images pi ON cp.product_id = pi.product_id
+		JOIN 
+			size_quantity sq ON cp.size_id = sq.size_id AND cp.product_id = sq.product_id
+		JOIN 
+			sizes s ON sq.size_id = s.size_id
 		WHERE 
 			cp.user_id = ? AND 
 			pi.is_thumbnail = 1
@@ -46,7 +53,7 @@ func GetProducts(selected string, userID int, c echo.Context, db *sql.DB) ([]pro
 	cartProducts := []products.Product{}
 	for rows.Next() {
 		var product products.Product
-		err := rows.Scan(&product.ProductID, &product.Quantity, &product.Selected, &product.ProductName, &product.Price, &product.InStockQuantity, &product.ImageURL)
+		err := rows.Scan(&product.CartProductID, &product.ProductID, &product.Quantity, &product.Selected, &product.SizeID, &product.ProductName, &product.Price, &product.SizeQuantity, &product.ImageURL, &product.SizeName)
 		if err != nil {
 			return nil, err
 		}
@@ -60,12 +67,12 @@ func GetProducts(selected string, userID int, c echo.Context, db *sql.DB) ([]pro
 	return cartProducts, nil
 }
 
-func UpSertProduct(userID int, productID int, quantity int, c echo.Context, db *sql.DB) error {
+func UpSertProduct(userID int, productID int, quantity int, sizeID int, c echo.Context, db *sql.DB) error {
 	_, err := db.Exec(`
-		INSERT INTO cart_products (user_id, product_id, quantity) 
-		VALUES (?, ?, ?)
+		INSERT INTO cart_products (user_id, product_id, quantity, size_id, selected) 
+		VALUES (?, ?, ?, ?, 0)
 		ON DUPLICATE KEY UPDATE quantity = quantity + ?;
-	`, userID, productID, quantity, quantity)
+	`, userID, productID, quantity, sizeID, quantity)
 	if err != nil {
 		return fmt.Errorf("Failed to add product to cart! Please try again")
 	}
@@ -73,14 +80,14 @@ func UpSertProduct(userID int, productID int, quantity int, c echo.Context, db *
 	return nil
 }
 
-func Update(userID, productID, quantity int, selected bool, c echo.Context, db *sql.DB) error {
+func Update(userID, cartProductID, quantity int, selected bool, c echo.Context, db *sql.DB) error {
 	row, err := db.Query(`	
 		SELECT * 
 		FROM cart_products
 		WHERE 
 			user_id = ? AND 
-			product_id = ?;
-		`, userID, productID)
+			id = ?;
+		`, userID, cartProductID)
 	if err != nil {
 		return err
 	}
@@ -92,8 +99,8 @@ func Update(userID, productID, quantity int, selected bool, c echo.Context, db *
 				DELETE FROM cart_products 
 				WHERE 
 					user_id = ? AND
-					product_id = ?;
-				`, userID, productID)
+					id = ?;
+				`, userID, cartProductID)
 			if err != nil {
 				return err
 			}
@@ -105,8 +112,8 @@ func Update(userID, productID, quantity int, selected bool, c echo.Context, db *
 					selected = ?
 				WHERE
 					user_id = ? AND
-					product_id = ?;
-				`, quantity, selected, userID, productID)
+					id = ?;
+				`, quantity, selected, userID, cartProductID)
 			if err != nil {
 				return err
 			}
@@ -118,14 +125,14 @@ func Update(userID, productID, quantity int, selected bool, c echo.Context, db *
 	return nil
 }
 
-func DeleteProduct(userID, productID int, c echo.Context, db *sql.DB) error {
+func DeleteProduct(userID, cartProductID int, c echo.Context, db *sql.DB) error {
 	row, err := db.Query(`	
 		SELECT * 
 		FROM cart_products
 		WHERE 
 			user_id = ? AND 
-			product_id = ?;
-		`, userID, productID)
+			id = ?;
+		`, userID, cartProductID)
 	if err != nil {
 		return err
 	}
@@ -136,8 +143,8 @@ func DeleteProduct(userID, productID int, c echo.Context, db *sql.DB) error {
 			DELETE FROM cart_products
 			WHERE 
 				user_id = ? AND 
-				product_id = ?;
-			`, userID, productID)
+				id = ?;
+			`, userID, cartProductID)
 		if err != nil {
 			return err
 		}

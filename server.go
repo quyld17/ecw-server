@@ -25,5 +25,5 @@ func main() {
 
 	routers.RegisterAPIHandlers(router, db)
 
-	router.Logger.Fatal(router.Start("0.0.0.0:8080"))
+	router.Logger.Fatal(router.Start(":8080"))
 }

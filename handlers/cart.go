@@ -46,7 +46,7 @@ func AddProductToCart(c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
-	if err := cart.UpSertProduct(userID, product.ProductID, product.Quantity, c, db); err != nil {
+	if err := cart.UpSertProduct(userID, product.ProductID, product.Quantity, product.SizeID, c, db); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
 
@@ -64,7 +64,7 @@ func UpdateCartProducts(c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 	for _, product := range products {
-		err := cart.Update(userID, product.ProductID, product.Quantity, product.Selected, c, db)
+		err := cart.Update(userID, product.CartProductID, product.Quantity, product.Selected, c, db)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err)
 		}
@@ -72,15 +72,15 @@ func UpdateCartProducts(c echo.Context, db *sql.DB) error {
 	return c.JSON(http.StatusOK, "Update cart successfully!")
 }
 
-func DeleteCartProduct(productID string, c echo.Context, db *sql.DB) error {
+func DeleteCartProduct(cartProductID string, c echo.Context, db *sql.DB) error {
 	userID, err := users.GetID(c, db)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
-	id, err := strconv.Atoi(productID)
+	id, err := strconv.Atoi(cartProductID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid product ID! Please try again")
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid cart product ID! Please try again")
 	}
 
 	err = cart.DeleteProduct(userID, id, c, db)

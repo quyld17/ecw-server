@@ -76,9 +76,9 @@ func RegisterAPIHandlers(router *echo.Echo, db *sql.DB) {
 	router.PUT("/cart-products", middlewares.JWTAuthorize(func(c echo.Context) error {
 		return handlers.UpdateCartProducts(c, db)
 	}))
-	router.DELETE("/cart-products/:productID", middlewares.JWTAuthorize(func(c echo.Context) error {
-		productID := c.Param("productID")
-		return handlers.DeleteCartProduct(productID, c, db)
+	router.DELETE("/cart-products/:cart_product_id", middlewares.JWTAuthorize(func(c echo.Context) error {
+		cartProductID := c.Param("cart_product_id")
+		return handlers.DeleteCartProduct(cartProductID, c, db)
 	}))
 
 	// Orders

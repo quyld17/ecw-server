@@ -34,7 +34,7 @@ func GetProduct(productID string, c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
-	productDetail, productImages, err := products.GetProductDetails(id, c, db)
+	productDetail, productImages, productSizes, err := products.GetProductDetails(id, c, db)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrieve product's details")
 	}
@@ -42,6 +42,7 @@ func GetProduct(productID string, c echo.Context, db *sql.DB) error {
 	return c.JSON(http.StatusOK, echo.Map{
 		"product_detail": productDetail,
 		"product_images": productImages,
+		"product_sizes":  productSizes,
 	})
 }
 

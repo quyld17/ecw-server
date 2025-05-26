@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	address "github.com/quyld17/E-Commerce-Website/entities/address"
 )
 
 type User struct {
@@ -52,7 +51,7 @@ func Create(newUser User, db *sql.DB) error {
 	return nil
 }
 
-func GetDetails(userID int, db *sql.DB) (*User, *address.Address, error) {
+func GetDetails(userID int, db *sql.DB) (*User, error) {
 	row, err := db.Query(`
 		SELECT
 			email,
@@ -64,7 +63,7 @@ func GetDetails(userID int, db *sql.DB) (*User, *address.Address, error) {
 		WHERE user_id = ?;
 		`, userID)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var user User
@@ -76,7 +75,7 @@ func GetDetails(userID int, db *sql.DB) (*User, *address.Address, error) {
 
 		err := row.Scan(&email, &nullFullName, &nullPhoneNumber, &nullGender, &nullDateOfBirth)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		user.Email = email
@@ -91,30 +90,7 @@ func GetDetails(userID int, db *sql.DB) (*User, *address.Address, error) {
 	}
 	defer row.Close()
 
-	row, err = db.Query(`
-		SELECT address
-		FROM addresses
-		WHERE
-			user_id = ? AND
-			is_default = 1;
-		`, userID)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer row.Close()
-
-	var address address.Address
-	if row.Next() {
-		var nullAddress sql.NullString
-		err := row.Scan(&nullAddress)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		address.Address = nullAddress.String
-	}
-
-	return &user, &address, nil
+	return &user, nil
 }
 
 func GetID(c echo.Context, db *sql.DB) (int, error) {

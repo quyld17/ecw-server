@@ -7,20 +7,30 @@ import (
 )
 
 type Product struct {
-	ProductID       int    `json:"product_id"`
-	CategoryID      int    `json:"category_id"`
-	ProductName     string `json:"product_name"`
-	Price           int    `json:"price"`
-	InStockQuantity int    `json:"in_stock_quantity"`
-	ImageURL        string `json:"image_url"`
-	Quantity        int    `json:"quantity"`
-	Selected        bool   `json:"selected"`
+	ProductID     int    `json:"product_id"`
+	CartProductID int    `json:"cart_product_id"`
+	CategoryID    int    `json:"category_id"`
+	ProductName   string `json:"product_name"`
+	Price         int    `json:"price"`
+	ImageURL      string `json:"image_url"`
+	TotalQuantity int    `json:"total_quantity"`
+	Quantity      int    `json:"quantity"`
+	Selected      bool   `json:"selected"`
+	SizeID        int    `json:"size_id"`
+	SizeName      string `json:"size_name"`
+	SizeQuantity  int    `json:"size_quantity"`
 }
 
 type ProductImage struct {
 	ProductID   int    `json:"product_id"`
 	ImageURL    string `json:"image_url"`
 	IsThumbnail int    `json:"is_thumbnail"`
+}
+
+type ProductSize struct {
+	SizeID   int    `json:"size_id"`
+	SizeName string `json:"size_name"`
+	Quantity int    `json:"quantity"`
 }
 
 func GetByPage(c echo.Context, db *sql.DB, limit, offset int) ([]Product, int, error) {
@@ -30,11 +40,13 @@ func GetByPage(c echo.Context, db *sql.DB, limit, offset int) ([]Product, int, e
 			products.category_id, 
 			products.product_name, 
 			products.price,
-			products.in_stock_quantity,
-			product_images.image_url 
+			product_images.image_url,
+			products.total_quantity
 		FROM products
 		JOIN product_images ON products.product_id = product_images.product_id
-		WHERE product_images.is_thumbnail = 1
+		WHERE 
+			product_images.is_thumbnail = 1 AND
+			products.total_quantity > 0
 		LIMIT ? 
 		OFFSET ?;
 		`, limit, offset)
@@ -55,7 +67,7 @@ func GetByPage(c echo.Context, db *sql.DB, limit, offset int) ([]Product, int, e
 	productDetails := []Product{}
 	for rows.Next() {
 		var product Product
-		err := rows.Scan(&product.ProductID, &product.CategoryID, &product.ProductName, &product.Price, &product.InStockQuantity, &product.ImageURL)
+		err := rows.Scan(&product.ProductID, &product.CategoryID, &product.ProductName, &product.Price, &product.ImageURL, &product.TotalQuantity)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -69,13 +81,12 @@ func GetByPage(c echo.Context, db *sql.DB, limit, offset int) ([]Product, int, e
 	return productDetails, numOfProds, nil
 }
 
-func GetProductDetails(productID int, c echo.Context, db *sql.DB) (*Product, []ProductImage, error) {
+func GetProductDetails(productID int, c echo.Context, db *sql.DB) (*Product, []ProductImage, []ProductSize, error) {
 	rows, err := db.Query(`
 		SELECT 
-			products.product_id, 
-			products.product_name, 
+			products.product_id,
+			products.product_name,
 			products.price, 
-			products.in_stock_quantity, 
 			product_images.image_url, 
 			product_images.is_thumbnail 
 		FROM products 
@@ -84,7 +95,7 @@ func GetProductDetails(productID int, c echo.Context, db *sql.DB) (*Product, []P
 		WHERE products.product_id = ?;
 		`, productID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer rows.Close()
 
@@ -95,9 +106,9 @@ func GetProductDetails(productID int, c echo.Context, db *sql.DB) (*Product, []P
 		var product Product
 		var productImage ProductImage
 
-		err := rows.Scan(&product.ProductID, &product.ProductName, &product.Price, &product.InStockQuantity, &productImage.ImageURL, &productImage.IsThumbnail)
+		err := rows.Scan(&product.ProductID, &product.ProductName, &product.Price, &productImage.ImageURL, &productImage.IsThumbnail)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		productDetail = product
@@ -106,10 +117,39 @@ func GetProductDetails(productID int, c echo.Context, db *sql.DB) (*Product, []P
 
 	err = rows.Err()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return &productDetail, productImages, nil
+	sizeRows, err := db.Query(`
+		SELECT 
+			sizes.size_id,
+			sizes.size_name,
+			size_quantity.quantity
+		FROM sizes
+		JOIN size_quantity ON sizes.size_id = size_quantity.size_id
+		WHERE size_quantity.product_id = ?;
+		`, productID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer sizeRows.Close()
+
+	productSizes := []ProductSize{}
+	for sizeRows.Next() {
+		var size ProductSize
+		err := sizeRows.Scan(&size.SizeID, &size.SizeName, &size.Quantity)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		productSizes = append(productSizes, size)
+	}
+
+	err = sizeRows.Err()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return &productDetail, productImages, productSizes, nil
 }
 
 func Search(query string, db *sql.DB) ([]Product, error) {
@@ -128,7 +168,7 @@ func Search(query string, db *sql.DB) ([]Product, error) {
 		WHERE
 			products.product_name LIKE ? AND
 			product_images.is_thumbnail = 1 AND 
-			products.in_stock_quantity > 0
+			
 		LIMIT 5;
 		`, "%"+query+"%")
 	if err != nil {

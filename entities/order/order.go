@@ -2,13 +2,12 @@ package orders
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/labstack/echo/v4"
-	addresses "github.com/quyld17/E-Commerce-Website/entities/address"
 	"github.com/quyld17/E-Commerce-Website/entities/cart"
 	products "github.com/quyld17/E-Commerce-Website/entities/product"
-	users "github.com/quyld17/E-Commerce-Website/entities/user"
 )
 
 type Order struct {
@@ -16,6 +15,8 @@ type Order struct {
 	UserID           int            `json:"user_id"`
 	TotalPrice       int            `json:"total_price"`
 	PaymentMethod    string         `json:"payment_method"`
+	Address          string         `json:"address"`
+	AddressID        int            `json:"address_id"`
 	Status           string         `json:"status"`
 	CreatedAt        time.Time      `json:"created_at"`
 	CreatedAtDisplay string         `json:"created_at_display"`
@@ -29,9 +30,10 @@ type OrderProduct struct {
 	Quantity    int    `json:"quantity"`
 	Price       int    `json:"price"`
 	ImageURL    string `json:"image_url"`
+	SizeName    string `json:"size_name"`
 }
 
-func Create(user *users.User, address *addresses.Address, orderedProducts []products.Product, userID, totalPrice int, paymenMethod string, c echo.Context, db *sql.DB) error {
+func Create(orderedProducts []products.Product, userID, totalPrice int, paymenMethod, address string, c echo.Context, db *sql.DB) error {
 	transaction, err := db.Begin()
 	if err != nil {
 		return err
@@ -46,52 +48,61 @@ func Create(user *users.User, address *addresses.Address, orderedProducts []prod
 		INSERT INTO`+"`orders`"+`
 			(user_id, 
 			total_price, 
-			payment_method, 
+			payment_method,
+			address,
 			status) 
-		VALUES (?, ?, ?, ?)
-		`, userID, totalPrice, paymenMethod, "Delivering")
+		VALUES (?, ?, ?, ?, ?)
+		`, userID, totalPrice, paymenMethod, address, "Delivering")
 	if err != nil {
 		return err
 	}
+	fmt.Println("1")
 	orderID, err := result.LastInsertId()
 	if err != nil {
 		return err
 	}
+	fmt.Println("2")
 	orderProduct, err := transaction.Prepare(`	
-		INSERT INTO order_products 
+		INSERT INTO order_products
 			(order_id, 
 			product_id, 
 			product_name, 
 			quantity, 
 			price, 
-			image_url)
-		VALUES (?, ?, ?, ?, ?, ?);`)
+			image_url,
+			size_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?);`)
 	if err != nil {
 		return err
 	}
+	fmt.Println("3")
 	defer orderProduct.Close()
 
 	adjustQuantity, err := transaction.Prepare(`
-		UPDATE products
-		SET in_stock_quantity = in_stock_quantity - ?
-		WHERE product_id = ?;`)
+		UPDATE size_quantity
+		SET quantity = quantity - ?
+		WHERE size_id = ? AND product_id = ?;`)
 	if err != nil {
 		return err
 	}
+	fmt.Println("4")
 	defer adjustQuantity.Close()
 
 	for _, product := range orderedProducts {
-		_, err := orderProduct.Exec(orderID, product.ProductID, product.ProductName, product.Quantity, product.Price, product.ImageURL)
+		_, err := orderProduct.Exec(orderID, product.ProductID, product.ProductName, product.Quantity, product.Price, product.ImageURL, product.SizeID)
 		if err != nil {
 			return err
 		}
-		_, err = adjustQuantity.Exec(product.Quantity, product.ProductID)
+		fmt.Println("5")
+		_, err = adjustQuantity.Exec(product.Quantity, product.SizeID, product.ProductID)
 		if err != nil {
 			return err
 		}
-		if err = cart.DeleteProduct(userID, product.ProductID, c, db); err != nil {
+		fmt.Println("6")
+		if err = cart.DeleteProduct(userID, product.CartProductID, c, db); err != nil {
 			return err
 		}
+		fmt.Println("7")
 	}
 
 	err = transaction.Commit()
@@ -108,6 +119,7 @@ func GetByPage(userID int, c echo.Context, db *sql.DB) ([]Order, error) {
 			order_id,
 			total_price,
 			status,
+			address,
 			created_at,
 			payment_method
 		FROM `+"`orders`"+`
@@ -122,7 +134,7 @@ func GetByPage(userID int, c echo.Context, db *sql.DB) ([]Order, error) {
 	orders := []Order{}
 	for rows.Next() {
 		var order Order
-		err := rows.Scan(&order.OrderID, &order.TotalPrice, &order.Status, &order.CreatedAt, &order.PaymentMethod)
+		err := rows.Scan(&order.OrderID, &order.TotalPrice, &order.Status, &order.Address, &order.CreatedAt, &order.PaymentMethod)
 		if err != nil {
 			return nil, err
 		}
@@ -139,7 +151,7 @@ func GetByPage(userID int, c echo.Context, db *sql.DB) ([]Order, error) {
 		defer productRows.Close()
 		for productRows.Next() {
 			var product OrderProduct
-			err := productRows.Scan(&product.OrderID, &product.ProductID, &product.ProductName, &product.Quantity, &product.Price, &product.ImageURL)
+			err := productRows.Scan(&product.OrderID, &product.ProductID, &product.ProductName, &product.Quantity, &product.Price, &product.ImageURL, &product.SizeName)
 			if err != nil {
 				return nil, err
 			}

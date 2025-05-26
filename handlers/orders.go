@@ -21,10 +21,6 @@ func CreateOrder(c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
-	user, address, err := users.GetDetails(userID, db)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
-	}
 	orderedProducts, err := cart.GetProducts("true", userID, c, db)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
@@ -36,7 +32,7 @@ func CreateOrder(c echo.Context, db *sql.DB) error {
 		}
 	}
 
-	if err := orders.Create(user, address, orderedProducts, userID, totalPrice, order.PaymentMethod, c, db); err != nil {
+	if err := orders.Create(orderedProducts, userID, totalPrice, order.PaymentMethod, order.Address, c, db); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
 

@@ -14,14 +14,13 @@ func GetUserDetails(c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
 
-	user, address, err := users.GetDetails(userID, db)
+	user, err := users.GetDetails(userID, db)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
-		"user":    user,
-		"address": address,
+		"user": user,
 	})
 }
 
