@@ -96,7 +96,7 @@ func AddProduct(c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request format")
 	}
 
-	if req.Product.ProductID == 0 || req.Product.Name == "" || req.Product.Price <= 0 || req.Product.TotalQuantity < 0 {
+	if req.Product.Name == "" || req.Product.Price <= 0 || req.Product.TotalQuantity < 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "Missing or invalid required fields")
 	}
 	
