@@ -89,12 +89,6 @@ func RegisterAPIHandlers(router *echo.Echo, db *sql.DB) {
 	router.GET("/admin/products", middlewares.AdminAuthorize(func(c echo.Context) error {
 		return handlers.GetProductsByPage(c, db)
 	}))
-	router.GET("/admin/orders", middlewares.AdminAuthorize(func(c echo.Context) error {
-		return handlers.GetOrdersByPage(c, db)
-	}))
-	router.GET("/admin/customers", middlewares.AdminAuthorize(func(c echo.Context) error {
-		return handlers.GetCustomersByPage(c, db)
-	}))
 	router.DELETE("/admin/products/:productID", middlewares.AdminAuthorize(func(c echo.Context) error {
 		productID := c.Param("productID")
 		return handlers.DeleteProduct(productID, c, db)
@@ -104,5 +98,21 @@ func RegisterAPIHandlers(router *echo.Echo, db *sql.DB) {
 	}))
 	router.POST("/admin/products", middlewares.AdminAuthorize(func(c echo.Context) error {
 		return handlers.AddProduct(c, db)
+	}))
+
+
+	router.GET("/admin/orders", middlewares.AdminAuthorize(func(c echo.Context) error {
+		return handlers.GetOrdersByPage(c, db)
+	}))
+	router.PUT("/admin/orders", middlewares.AdminAuthorize(func(c echo.Context) error {
+		return handlers.UpdateOrder(c, db)
+	}))
+
+	router.GET("/admin/customers", middlewares.AdminAuthorize(func(c echo.Context) error {
+		return handlers.GetCustomersByPage(c, db)
+	}))
+	router.GET("/admin/customers/:customerID/orders", middlewares.AdminAuthorize(func(c echo.Context) error {
+		customerID := c.Param("customerID")
+		return handlers.GetCustomerOrders(customerID, c, db)
 	}))
 }

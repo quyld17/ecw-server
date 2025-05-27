@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/quyld17/E-Commerce-Website/entities/cart"
 	products "github.com/quyld17/E-Commerce-Website/entities/product"
+	users "github.com/quyld17/E-Commerce-Website/entities/user"
 )
 
 type Order struct {
@@ -20,6 +21,7 @@ type Order struct {
 	CreatedAt        time.Time      `json:"created_at"`
 	CreatedAtDisplay string         `json:"created_at_display"`
 	Products         []OrderProduct `json:"products"`
+	User             users.User     `json:"user"`
 }
 
 type OrderProduct struct {
@@ -187,19 +189,66 @@ func GetByPage(userID int, c echo.Context, db *sql.DB) ([]Order, error) {
 	return orders, nil
 }
 
+func GetByPageAdmin(offset, limit int, sortParam, search string, db *sql.DB) ([]Order, error) {
+	var orderBy string
+	switch sortParam {
+	case "date_desc":
+		orderBy = "o.created_at DESC"
+	case "date_asc":
+		orderBy = "o.created_at ASC"
+	case "amount_desc":
+		orderBy = "o.total_price DESC"
+	case "amount_asc":
+		orderBy = "o.total_price ASC"
+	default:
+		orderBy = "o.created_at DESC"
+	}
 
-func GetByPageAdmin(c echo.Context, db *sql.DB	) ([]Order, error) {
-	rows, err := db.Query(`
-		SELECT 
-			order_id,
-			total_price,
-			status,
-			address,
-			created_at,
-			payment_method
-		FROM `+"`orders`"+`
-		ORDER BY created_at DESC;
-		`)
+	var query string
+	var rows *sql.Rows
+	var err error
+
+	if search != "" {
+		query = `
+			SELECT 
+				o.order_id,
+				o.user_id,
+				o.total_price,
+				o.status,
+				o.address,
+				o.created_at,
+				o.payment_method,
+				u.email,
+				u.phone_number,
+				u.full_name
+			FROM ` + "`orders`" + ` AS o
+			JOIN users AS u ON o.user_id = u.user_id
+			WHERE o.order_id LIKE ? OR u.email LIKE ? OR u.phone_number LIKE ? OR u.full_name LIKE ?
+			ORDER BY ` + orderBy + ` 
+			LIMIT ? OFFSET ?;
+		`
+		rows, err = db.Query(query, "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", limit, offset)
+	} else {
+		query = `
+			SELECT 
+				o.order_id,
+				o.user_id,
+				o.total_price,	
+				o.status,
+				o.address,
+				o.created_at,
+				o.payment_method,
+				u.email,
+				u.phone_number,
+				u.full_name
+			FROM ` + "`orders`" + ` AS o
+			JOIN users AS u ON o.user_id = u.user_id
+			ORDER BY ` + orderBy + `
+			LIMIT ? OFFSET ?;
+		`
+		rows, err = db.Query(query, limit, offset)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -208,10 +257,21 @@ func GetByPageAdmin(c echo.Context, db *sql.DB	) ([]Order, error) {
 	orders := []Order{}
 	for rows.Next() {
 		var order Order
-		err := rows.Scan(&order.OrderID, &order.TotalPrice, &order.Status, &order.Address, &order.CreatedAt, &order.PaymentMethod)
+		err := rows.Scan(
+			&order.OrderID, 
+			&order.UserID,
+			&order.TotalPrice, 
+			&order.Status, 
+			&order.Address, 
+			&order.CreatedAt,
+			&order.PaymentMethod, 
+			&order.User.Email, 
+			&order.User.PhoneNumber, 
+			&order.User.FullName)
 		if err != nil {
 			return nil, err
 		}	
+		
 		order.CreatedAtDisplay = order.CreatedAt.Format("2006-01-02 15:04:05")
 
 		productRows, err := db.Query(`
@@ -223,6 +283,7 @@ func GetByPageAdmin(c echo.Context, db *sql.DB	) ([]Order, error) {
 			return nil, err
 		}
 		defer productRows.Close()
+		
 		for productRows.Next() {
 			var product OrderProduct
 			err := productRows.Scan(
@@ -239,17 +300,28 @@ func GetByPageAdmin(c echo.Context, db *sql.DB	) ([]Order, error) {
 			}
 			order.Products = append(order.Products, product)
 		}
-		err = productRows.Err()
-		if err != nil {
+		if err = productRows.Err(); err != nil {
 			return nil, err
 		}
 		
 		orders = append(orders, order)
 	}
-	err = rows.Err()
-	if err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-
+	
 	return orders, nil
+}
+
+
+func Update(orderID int, status string, db *sql.DB) error {
+	_, err := db.Exec(`
+		UPDATE orders
+		SET status = ?
+		WHERE order_id = ?;
+		`, status, orderID)
+	if err != nil {
+		return err
+	}
+	return nil
 }

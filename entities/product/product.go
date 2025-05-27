@@ -2,7 +2,7 @@ package products
 
 import (
 	"database/sql"
-
+	"errors"
 	"github.com/labstack/echo/v4"
 )
 
@@ -363,4 +363,25 @@ func Add(data UpdateProductData, db *sql.DB) error {
 	}
 
 	return tx.Commit()
+}
+
+func CheckProductExists(productID int, db *sql.DB) error {
+	var exists bool
+	err := db.QueryRow(`
+		SELECT EXISTS (
+			SELECT 1
+			FROM products
+			WHERE product_id = ?
+		)
+		`, productID).Scan(&exists)
+
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		return errors.New("Product not found")
+	}
+
+	return nil
 }

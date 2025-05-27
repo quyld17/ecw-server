@@ -51,6 +51,11 @@ func GetProduct(productID string, c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
+	err = products.CheckProductExists(id, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "Product not found")
+	}
+
 	productDetail, productImages, productSizes, err := products.GetProductDetails(id, c, db)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrieve product's details")

@@ -180,19 +180,46 @@ func GetRole(email string, db *sql.DB) (string, error) {
 	return role, nil
 }
 
-func GetByPage(c echo.Context, db *sql.DB) ([]User, error) {
-	rows, err := db.Query(`
-		SELECT 
-			user_id,
-			email,
-			full_name,
-			date_of_birth,
-			phone_number,
-			gender,
-			created_at
-		FROM users
-		ORDER BY created_at DESC;
-		`)
+func GetByPage(offset, limit int, search string, db *sql.DB) ([]User, error) {
+	var query string
+	var rows *sql.Rows
+	var err error
+
+	if search != "" {
+		query = `
+			SELECT 
+				user_id,
+				email,
+				full_name,
+				date_of_birth,
+				phone_number,
+				gender,
+				created_at
+			FROM users
+			WHERE 
+				role_id = 1 AND
+				full_name LIKE ? OR 
+				email LIKE ? OR 
+				phone_number LIKE ? 
+			LIMIT ? OFFSET ?;
+		`
+		rows, err = db.Query(query, "%"+search+"%", "%"+search+"%", "%"+search+"%", limit, offset)
+	} else {
+		query = `
+			SELECT 
+				user_id,
+				email,
+				full_name,
+				date_of_birth,
+				phone_number,
+				gender,
+				created_at
+			FROM users
+			WHERE role_id = 1
+			LIMIT ? OFFSET ?;
+		`
+		rows, err = db.Query(query, limit, offset)
+	}
 	if err != nil {
 		return nil, err
 	}
