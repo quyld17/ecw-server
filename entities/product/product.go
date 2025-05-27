@@ -257,12 +257,7 @@ func Delete(productID int, db *sql.DB) error {
 		return err
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return tx.Commit()
 }
 
 func Update(data UpdateProductData, db *sql.DB) error {
@@ -284,7 +279,10 @@ func Update(data UpdateProductData, db *sql.DB) error {
 		return err
 	}
 
-	if _, err := tx.Exec(`DELETE FROM product_images WHERE product_id = ?`, data.Product.ProductID); err != nil {
+	if _, err := tx.Exec(`	
+		DELETE FROM product_images 
+		WHERE product_id = ?`, 
+		data.Product.ProductID); err != nil {
 		return err
 	}
 
@@ -294,44 +292,72 @@ func Update(data UpdateProductData, db *sql.DB) error {
 			isThumbnail = 1
 		}
 		if _, err := tx.Exec(
-			`INSERT INTO product_images (product_id, image_url, is_thumbnail) VALUES (?, ?, ?)`,
+			`INSERT INTO product_images (product_id, image_url, is_thumbnail) 
+			VALUES (?, ?, ?)`,
 			data.Product.ProductID, imageURL, isThumbnail,
 		); err != nil {
 			return err
 		}
 	}
 
+	if _, err := tx.Exec(`	
+		DELETE FROM sizes 
+		WHERE product_id = ?`, 
+		data.Product.ProductID); err != nil {
+		return err
+	}
+
 	for _, size := range data.Sizes {
-		var sizeID int
-		err := tx.QueryRow(`
-			SELECT 
-				size_id 
-			FROM 
-				sizes 
-			WHERE 
-				size_name = ? AND 
-				product_id = ?`, 
-			size.SizeName, data.Product.ProductID).Scan(&sizeID)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				_, err := tx.Exec(
-					`INSERT INTO sizes (size_name, product_id, quantity) VALUES (?, ?, ?)`,
-					size.SizeName, data.Product.ProductID, size.Quantity)
-				if err != nil {
-					return err
-				}
-				continue
-			}
+		if _, err := tx.Exec(`
+			INSERT INTO sizes (size_name, product_id, quantity) 
+			VALUES (?, ?, ?)`,
+			size.SizeName, data.Product.ProductID, size.Quantity); err != nil {
 			return err
 		}
+	}
 
-		if _, err := tx.Exec(
-			`UPDATE sizes 
-			SET quantity = ? 
-			WHERE 
-				size_id = ? AND 
-				product_id = ?`,
-			size.Quantity, sizeID, data.Product.ProductID); err != nil {
+	return tx.Commit()
+}
+
+func Add(data UpdateProductData, db *sql.DB) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	
+	result, err := tx.Exec(`
+		INSERT INTO products (product_name, price, total_quantity) 
+		VALUES (?, ?, ?)`,
+		data.Product.Name, data.Product.Price, data.Product.TotalQuantity)
+	if err != nil {
+		return err
+	}
+
+	productID, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	for i, imageURL := range data.ImageURLs {
+		isThumbnail := 0
+		if i == 0 {
+			isThumbnail = 1
+		}
+		if _, err := tx.Exec(`
+			INSERT INTO product_images (product_id, image_url, is_thumbnail) 
+			VALUES (?, ?, ?)`,
+			productID, imageURL, isThumbnail); err != nil {
+			return err
+		}
+	}
+
+	for _, size := range data.Sizes {
+		_, err := tx.Exec(`
+			INSERT INTO sizes (size_name, product_id, quantity) 
+			VALUES (?, ?, ?)`,
+			size.SizeName, productID, size.Quantity)
+		if err != nil {
 			return err
 		}
 	}

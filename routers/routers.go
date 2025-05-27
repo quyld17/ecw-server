@@ -102,4 +102,7 @@ func RegisterAPIHandlers(router *echo.Echo, db *sql.DB) {
 	router.PUT("/admin/products", middlewares.AdminAuthorize(func(c echo.Context) error {
 		return handlers.UpdateProduct(c, db)
 	}))
+	router.POST("/admin/products", middlewares.AdminAuthorize(func(c echo.Context) error {
+		return handlers.AddProduct(c, db)
+	}))
 }

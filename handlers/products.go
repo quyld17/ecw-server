@@ -88,3 +88,22 @@ func DeleteProduct(productID string, c echo.Context, db *sql.DB) error {
 	}
 	return c.JSON(http.StatusOK, "Product deleted successfully")
 }
+
+func AddProduct(c echo.Context, db *sql.DB) error {
+	var req products.UpdateProductData
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request format")
+	}
+
+	if req.Product.ProductID == 0 || req.Product.Name == "" || req.Product.Price <= 0 || req.Product.TotalQuantity < 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing or invalid required fields")
+	}
+	
+	err := products.Add(req, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to add product")
+	}
+
+	return c.JSON(http.StatusOK, "Product added successfully")
+}
