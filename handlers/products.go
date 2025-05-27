@@ -32,7 +32,9 @@ func GetProductsByPage(c echo.Context, db *sql.DB) error {
 			orderBy = "products.product_id DESC"
 	}
 
-	products, numOfProds, err := products.GetByPage(c, db, itemsPerPage, offset, orderBy)
+	searchParam := c.QueryParam("search")
+
+	products, numOfProds, err := products.GetByPage(c, db, itemsPerPage, offset, orderBy, searchParam)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Unable to retrieve products at the moment. Please try again")
 	}
@@ -72,4 +74,17 @@ func SearchProducts(c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to search products")
 	}
 	return c.JSON(http.StatusOK, products)
+}
+
+func DeleteProduct(productID string, c echo.Context, db *sql.DB) error {
+	id, err := strconv.Atoi(productID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err)
+	}
+
+	err = products.Delete(id, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err)
+	}
+	return c.JSON(http.StatusOK, "Product deleted successfully")
 }

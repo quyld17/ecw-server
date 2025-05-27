@@ -20,9 +20,9 @@ func GetProducts(selected string, userID int, c echo.Context, db *sql.DB) ([]pro
 			cp.size_id,
 			p.product_name, 
 			p.price, 
-			sq.quantity,
 			pi.image_url,
-			s.size_name
+			s.size_name,
+			s.quantity
 		FROM 
 			cart_products cp
 		JOIN 
@@ -30,9 +30,7 @@ func GetProducts(selected string, userID int, c echo.Context, db *sql.DB) ([]pro
 		JOIN 
 			product_images pi ON cp.product_id = pi.product_id
 		JOIN 
-			size_quantity sq ON cp.size_id = sq.size_id AND cp.product_id = sq.product_id
-		JOIN 
-			sizes s ON sq.size_id = s.size_id
+			sizes s ON cp.size_id = s.size_id
 		WHERE 
 			cp.user_id = ? AND 
 			pi.is_thumbnail = 1
@@ -53,7 +51,16 @@ func GetProducts(selected string, userID int, c echo.Context, db *sql.DB) ([]pro
 	cartProducts := []products.Product{}
 	for rows.Next() {
 		var product products.Product
-		err := rows.Scan(&product.CartProductID, &product.ProductID, &product.Quantity, &product.Selected, &product.SizeID, &product.ProductName, &product.Price, &product.SizeQuantity, &product.ImageURL, &product.SizeName)
+		err := rows.Scan(&product.CartProductID, 
+			&product.ProductID, 
+			&product.Quantity, 
+			&product.Selected, 
+			&product.SizeID, 
+			&product.ProductName, 
+			&product.Price, 
+			&product.ImageURL, 
+			&product.SizeName, 
+			&product.SizeQuantity)
 		if err != nil {
 			return nil, err
 		}
@@ -71,7 +78,7 @@ func UpSertProduct(userID int, productID int, quantity int, sizeID int, c echo.C
 	var availableQuantity int
 	err := db.QueryRow(`
 		SELECT quantity 
-		FROM size_quantity 
+		FROM sizes 
 		WHERE product_id = ? AND size_id = ?
 	`, productID, sizeID).Scan(&availableQuantity)
 	if err != nil {

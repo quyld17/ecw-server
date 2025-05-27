@@ -10,15 +10,17 @@ import (
 )
 
 type User struct {
-	UserId            int       `json:"user_id"`
-	Email             string    `json:"email"`
-	Password          string    `json:"password"`
-	NewPassword       string    `json:"new_password"`
-	FullName          string    `json:"full_name"`
-	DateOfBirth       time.Time `json:"date_of_birth"`
-	DateOfBirthString string    `json:"date_of_birth_string"`
-	PhoneNumber       string    `json:"phone_number"`
-	Gender            int       `json:"gender"`
+	UserId             int       `json:"user_id"`
+	Email              string    `json:"email"`
+	Password           string    `json:"password"`
+	NewPassword        string    `json:"new_password"`
+	FullName           string    `json:"full_name"`
+	DateOfBirth        time.Time `json:"date_of_birth"`
+	DateOfBirthDisplay string    `json:"date_of_birth_display"`
+	PhoneNumber        string    `json:"phone_number"`
+	Gender             int       `json:"gender"`
+	CreatedAt          time.Time `json:"created_at"`
+	CreatedAtDisplay   string    `json:"created_at_display"`
 }
 
 func Authenticate(account User, db *sql.DB) error {
@@ -94,7 +96,7 @@ func GetDetails(userID int, db *sql.DB) (*User, error) {
 
 		if nullDateOfBirth.Valid {
 			user.DateOfBirth = nullDateOfBirth.Time
-			user.DateOfBirthString = user.DateOfBirth.Format("2006-01-02")
+			user.DateOfBirthDisplay = user.DateOfBirth.Format("2006-01-02")
 		}
 	}
 	defer row.Close()
@@ -117,28 +119,30 @@ func GetID(c echo.Context, db *sql.DB) (int, error) {
 }
 
 func ChangePassword(userID int, password, newPassword string, c echo.Context, db *sql.DB) error {
-	row, err := db.Query(`
+	var hashedPassword string
+	err := db.QueryRow(`
 		SELECT password
-		FROM users
-		WHERE
-			user_id = ? AND
-			password = ?;
-		`, userID, password)
+		FROM users 
+		WHERE user_id = ?`, userID).Scan(&hashedPassword)
 	if err != nil {
 		return fmt.Errorf("Error while changing password! Please try again")
 	}
-	defer row.Close()
-	if row.Next() {
-		_, err := db.Exec(`	
-			UPDATE users
-			SET password = ? 
-			WHERE user_id = ?;
-			`, newPassword, userID)
-		if err != nil {
-			return fmt.Errorf("Error while changing password! Please try again")
-		}
-	} else {
-		return fmt.Errorf("Wrong password! Plase try again")
+
+	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)); err != nil {
+		return fmt.Errorf("Wrong password! Please try again")
+	}
+
+	hashedNewPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("Error while changing password! Please try again")
+	}
+
+	_, err = db.Exec(`
+		UPDATE users 
+		SET password = ?
+		WHERE user_id = ?`, string(hashedNewPassword), userID)
+	if err != nil {
+		return fmt.Errorf("Error while changing password! Please try again")
 	}
 
 	return nil
@@ -157,4 +161,58 @@ func UpdateDetails(userID int, fullName, phoneNumber string, gender int, dateOfB
 		return fmt.Errorf("Error updating profile! Please try again")
 	}
 	return nil
+}
+
+func GetRole(email string, db *sql.DB) (string, error) {
+	var role string
+	err := db.QueryRow(`
+		SELECT role_name
+		FROM roles
+		WHERE role_id = (
+			SELECT role_id
+			FROM users
+			WHERE email = ?
+		)
+		`, email).Scan(&role)
+	if err != nil {
+		return "", err
+	}
+	return role, nil
+}
+
+func GetByPage(c echo.Context, db *sql.DB) ([]User, error) {
+	rows, err := db.Query(`
+		SELECT 
+			user_id,
+			email,
+			full_name,
+			date_of_birth,
+			phone_number,
+			gender,
+			created_at
+		FROM users
+		ORDER BY created_at DESC;
+		`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := []User{}
+	for rows.Next() {
+		var user User
+		err := rows.Scan(&user.UserId, &user.Email, &user.FullName, &user.DateOfBirth, &user.PhoneNumber, &user.Gender, &user.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		user.CreatedAtDisplay = user.CreatedAt.Format("2006-01-02 15:04:05")
+		user.DateOfBirthDisplay = user.DateOfBirth.Format("2006-01-02") 
+		users = append(users, user)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }

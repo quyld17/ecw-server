@@ -27,6 +27,40 @@ func ValidateEmailAndPassword(user users.User) string {
 	return ""
 }
 
+func AdminAuthorize(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		err := godotenv.Load(".env")
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err)
+		}
+
+		tokenString := jwtHandler.GetToken(c)
+		if tokenString == "" {
+			return echo.NewHTTPError(http.StatusUnauthorized, "Unauthorized")
+		}
+
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			return []byte(os.Getenv("JWT_SECRET_KEY")), nil
+		})
+		if err != nil || !token.Valid {
+			return echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
+		}
+
+		email := jwtHandler.GetClaims(token, "email")
+		if email == "" {
+			return echo.NewHTTPError(http.StatusBadRequest, "Invalid claims")
+		}
+
+		role := jwtHandler.GetClaims(token, "role")
+		if role != "Admin" {
+			return echo.NewHTTPError(http.StatusUnauthorized, "Admin access required")
+		}
+
+		c.Set("email", email)
+		return next(c)
+	}
+}
+
 func JWTAuthorize(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		err := godotenv.Load(".env")
@@ -34,7 +68,6 @@ func JWTAuthorize(next echo.HandlerFunc) echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusInternalServerError, err)
 		}
 
-		// Retrieve the JWT token from the request header
 		tokenString := jwtHandler.GetToken(c)
 		if tokenString == "" {
 			return echo.NewHTTPError(http.StatusUnauthorized, "Unauthorized")

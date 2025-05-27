@@ -60,11 +60,6 @@ func RegisterAPIHandlers(router *echo.Echo, db *sql.DB) {
 		return handlers.SearchProducts(c, db)
 	})
 
-	// Categories
-	router.GET("/categories", func(c echo.Context) error {
-		return handlers.GetAllCategories(c, db)
-	})
-
 	// Cart
 	router.GET("/cart-products", middlewares.JWTAuthorize(func(c echo.Context) error {
 		selected := c.QueryParam("selected")
@@ -87,5 +82,24 @@ func RegisterAPIHandlers(router *echo.Echo, db *sql.DB) {
 	}))
 	router.POST("/orders", middlewares.JWTAuthorize(func(c echo.Context) error {
 		return handlers.CreateOrder(c, db)
+	}))
+
+
+	// Admin
+	router.GET("/admin/products", middlewares.AdminAuthorize(func(c echo.Context) error {
+		return handlers.GetProductsByPage(c, db)
+	}))
+	router.GET("/admin/orders", middlewares.AdminAuthorize(func(c echo.Context) error {
+		return handlers.GetOrdersByPage(c, db)
+	}))
+	router.GET("/admin/customers", middlewares.AdminAuthorize(func(c echo.Context) error {
+		return handlers.GetCustomersByPage(c, db)
+	}))
+	router.DELETE("/admin/products/:productID", middlewares.AdminAuthorize(func(c echo.Context) error {
+		productID := c.Param("productID")
+		return handlers.DeleteProduct(productID, c, db)
+	}))
+	router.PUT("/admin/products", middlewares.AdminAuthorize(func(c echo.Context) error {
+		return handlers.UpdateProduct(c, db)
 	}))
 }

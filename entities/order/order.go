@@ -30,7 +30,6 @@ type OrderProduct struct {
 	Quantity    int    `json:"quantity"`
 	Price       int    `json:"price"`
 	ImageURL    string `json:"image_url"`
-	SizeID      int    `json:"size_id"`
 	SizeName    string `json:"size_name"`
 }
 
@@ -69,7 +68,7 @@ func Create(orderedProducts []products.Product, userID, totalPrice int, paymenMe
 			quantity, 
 			price, 
 			image_url,
-			size_id)
+			size_name)
 		VALUES (?, ?, ?, ?, ?, ?, ?);`)
 	if err != nil {
 		return err
@@ -77,7 +76,7 @@ func Create(orderedProducts []products.Product, userID, totalPrice int, paymenMe
 	defer orderProduct.Close()
 
 	adjustQuantity, err := transaction.Prepare(`
-		UPDATE size_quantity
+		UPDATE sizes
 		SET quantity = quantity - ?
 		WHERE size_id = ? AND product_id = ?;`)
 	if err != nil {
@@ -95,7 +94,7 @@ func Create(orderedProducts []products.Product, userID, totalPrice int, paymenMe
 	defer updateTotalQuantity.Close()
 
 	for _, product := range orderedProducts {
-		_, err := orderProduct.Exec(orderID, product.ProductID, product.ProductName, product.Quantity, product.Price, product.ImageURL, product.SizeID)
+		_, err := orderProduct.Exec(orderID, product.ProductID, product.ProductName, product.Quantity, product.Price, product.ImageURL, product.SizeName)
 		if err != nil {
 			return err
 		}
@@ -149,17 +148,8 @@ func GetByPage(userID int, c echo.Context, db *sql.DB) ([]Order, error) {
 		order.CreatedAtDisplay = order.CreatedAt.Format("2006-01-02 15:04:05")
 
 		productRows, err := db.Query(`
-			SELECT 
-				order_products.id,
-				order_products.product_id,
-				order_products.product_name,
-				order_products.quantity,
-				order_products.price,
-				order_products.image_url,
-				order_products.size_id,
-				sizes.size_name
+			SELECT *
 			FROM order_products
-			JOIN sizes ON order_products.size_id = sizes.size_id
 			WHERE order_id = ?;
 			`, order.OrderID)
 		if err != nil {
@@ -168,7 +158,15 @@ func GetByPage(userID int, c echo.Context, db *sql.DB) ([]Order, error) {
 		defer productRows.Close()
 		for productRows.Next() {
 			var product OrderProduct
-			err := productRows.Scan(&product.ID, &product.ProductID, &product.ProductName, &product.Quantity, &product.Price, &product.ImageURL, &product.SizeID, &product.SizeName)
+			err := productRows.Scan(
+				&product.ID, 
+				&product.OrderID, 
+				&product.ProductID, 
+				&product.ProductName, 
+				&product.Quantity,
+				&product.Price, 
+				&product.ImageURL, 
+				&product.SizeName)
 			if err != nil {
 				return nil, err
 			}
@@ -185,6 +183,73 @@ func GetByPage(userID int, c echo.Context, db *sql.DB) ([]Order, error) {
 	if err != nil {
 		return nil, err
 	}	
+
+	return orders, nil
+}
+
+
+func GetByPageAdmin(c echo.Context, db *sql.DB	) ([]Order, error) {
+	rows, err := db.Query(`
+		SELECT 
+			order_id,
+			total_price,
+			status,
+			address,
+			created_at,
+			payment_method
+		FROM `+"`orders`"+`
+		ORDER BY created_at DESC;
+		`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	orders := []Order{}
+	for rows.Next() {
+		var order Order
+		err := rows.Scan(&order.OrderID, &order.TotalPrice, &order.Status, &order.Address, &order.CreatedAt, &order.PaymentMethod)
+		if err != nil {
+			return nil, err
+		}	
+		order.CreatedAtDisplay = order.CreatedAt.Format("2006-01-02 15:04:05")
+
+		productRows, err := db.Query(`
+			SELECT *
+			FROM order_products
+			WHERE order_id = ?;
+			`, order.OrderID)
+		if err != nil {
+			return nil, err
+		}
+		defer productRows.Close()
+		for productRows.Next() {
+			var product OrderProduct
+			err := productRows.Scan(
+				&product.ID, 
+				&product.OrderID, 
+				&product.ProductID, 
+				&product.ProductName, 
+				&product.Quantity,
+				&product.Price, 
+				&product.ImageURL, 
+				&product.SizeName)
+			if err != nil {
+				return nil, err
+			}
+			order.Products = append(order.Products, product)
+		}
+		err = productRows.Err()
+		if err != nil {
+			return nil, err
+		}
+		
+		orders = append(orders, order)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
 
 	return orders, nil
 }

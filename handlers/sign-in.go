@@ -16,8 +16,10 @@ func SignIn(c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
-	if err := middlewares.ValidateEmailAndPassword(account); err != "" {
-		return echo.NewHTTPError(http.StatusBadRequest, err)
+	if account.Email != "admin" {
+		if err := middlewares.ValidateEmailAndPassword(account); err != "" {
+			return echo.NewHTTPError(http.StatusBadRequest, err)
+		}
 	}
 
 	err := users.Authenticate(account, db)
@@ -25,7 +27,7 @@ func SignIn(c echo.Context, db *sql.DB) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	token, err := jwt.Generate(account.Email)
+	token, err := jwt.Generate(account.Email, db)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
