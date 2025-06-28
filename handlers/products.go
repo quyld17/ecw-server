@@ -112,3 +112,17 @@ func AddProduct(c echo.Context, db *sql.DB) error {
 
 	return c.JSON(http.StatusOK, "Product added successfully")
 }
+
+func CheckProductExists(productID string, c echo.Context, db *sql.DB) error {
+	id, err := strconv.Atoi(productID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid product ID")
+	}
+
+	err = products.CheckProductExists(id, db)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "Product not found")
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"exists": true})
+}

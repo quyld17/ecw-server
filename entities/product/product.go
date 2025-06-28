@@ -3,6 +3,7 @@ package products
 import (
 	"database/sql"
 	"errors"
+
 	"github.com/labstack/echo/v4"
 )
 
@@ -51,6 +52,8 @@ func GetByPage(c echo.Context, db *sql.DB, limit, offset int, orderBy, search st
 	var query string
 	var rows *sql.Rows
 	var err error
+	var countQuery string
+	var count int
 
 	if search == "" {
 		query = `
@@ -70,6 +73,20 @@ func GetByPage(c echo.Context, db *sql.DB, limit, offset int, orderBy, search st
 			OFFSET ?
 			;`
 		rows, err = db.Query(query, limit, offset)
+
+		// Count query
+		countQuery = `
+			SELECT COUNT(*)
+			FROM products
+			JOIN product_images ON products.product_id = product_images.product_id
+			WHERE 
+				product_images.is_thumbnail = 1 AND
+				products.total_quantity > 0
+		`
+		err2 := db.QueryRow(countQuery).Scan(&count)
+		if err2 != nil {
+			return nil, 0, err2
+		}
 	} else {
 		query = `
 			SELECT 
@@ -89,6 +106,21 @@ func GetByPage(c echo.Context, db *sql.DB, limit, offset int, orderBy, search st
 			OFFSET ?
 			;`
 		rows, err = db.Query(query, "%"+search+"%", limit, offset)
+
+		// Count query
+		countQuery = `
+			SELECT COUNT(*)
+			FROM products
+			JOIN product_images ON products.product_id = product_images.product_id
+			WHERE 
+				product_images.is_thumbnail = 1 AND
+				products.product_name LIKE ? AND
+				products.total_quantity > 0
+		`
+		err2 := db.QueryRow(countQuery, "%"+search+"%").Scan(&count)
+		if err2 != nil {
+			return nil, 0, err2
+		}
 	}
 
 	if err != nil {
@@ -96,7 +128,6 @@ func GetByPage(c echo.Context, db *sql.DB, limit, offset int, orderBy, search st
 	}
 	defer rows.Close()
 
-	var numOfProds int
 	productDetails := []Product{}
 	for rows.Next() {
 		var product Product
@@ -105,14 +136,13 @@ func GetByPage(c echo.Context, db *sql.DB, limit, offset int, orderBy, search st
 			return nil, 0, err
 		}
 		productDetails = append(productDetails, product)
-		numOfProds += 1
 	}
 	err = rows.Err()
 	if err != nil {
 		return nil, 0, err
 	}
 
-	return productDetails, numOfProds, nil
+	return productDetails, count, nil
 }
 
 func GetProductDetails(productID int, c echo.Context, db *sql.DB) (*Product, []ProductImage, []ProductSize, error) {
@@ -378,7 +408,6 @@ func CheckProductExists(productID int, db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-
 	if !exists {
 		return errors.New("Product not found")
 	}

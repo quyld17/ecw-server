@@ -59,6 +59,10 @@ func RegisterAPIHandlers(router *echo.Echo, db *sql.DB) {
 	router.GET("/products/search", func(c echo.Context) error {
 		return handlers.SearchProducts(c, db)
 	})
+	router.GET("/products/:productID/exists", func(c echo.Context) error {
+		productID := c.Param("productID")
+		return handlers.CheckProductExists(productID, c, db)
+	})
 
 	// Cart
 	router.GET("/cart-products", middlewares.JWTAuthorize(func(c echo.Context) error {
